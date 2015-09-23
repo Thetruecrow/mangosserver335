@@ -491,9 +491,6 @@
     <ProjectReference Include="game.vcxproj">
       <Project>{1dc6c4da-a028-41f3-877d-d5400c594f88}</Project>
     </ProjectReference>
-    <ProjectReference Include="realmd.vcxproj">
-      <Project>{563e9905-3657-460c-ae63-0ac39d162e23}</Project>
-    </ProjectReference>
     <ProjectReference Include="shared.vcxproj">
       <Project>{90297c34-f231-4df4-848e-a74bcc0e40ed}</Project>
     </ProjectReference>
