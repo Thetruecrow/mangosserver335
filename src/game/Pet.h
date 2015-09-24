@@ -159,13 +159,12 @@ class MANGOS_DLL_SPEC Pet : public Creature
         void SetDeathState(DeathState s) override;          // overwrite virtual Creature::SetDeathState and Unit::SetDeathState
         void Update(uint32 update_diff, uint32 diff) override;  // overwrite virtual Creature::Update and Unit::Update
 
-        uint8 GetPetAutoSpellSize() const { return m_autospells.size(); }
+        uint8 GetPetAutoSpellSize() const { return (uint8)m_autospells.size(); }
         uint32 GetPetAutoSpellOnPos(uint8 pos) const override
         {
             if (pos >= m_autospells.size())
                 return 0;
-            else
-                return m_autospells[pos];
+            return m_autospells[pos];
         }
 
         bool CanSwim() const override

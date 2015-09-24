@@ -210,7 +210,7 @@ void Database::escape_string(std::string& str)
 
     char* buf = new char[str.size() * 2 + 1];
     // we don't care what connection to use - escape string will be the same
-    m_pQueryConnections[0]->escape_string(buf, str.c_str(), str.size());
+    m_pQueryConnections[0]->escape_string(buf, str.c_str(), (unsigned long)str.size());
     str = buf;
     delete[] buf;
 }

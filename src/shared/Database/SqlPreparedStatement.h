@@ -331,7 +331,7 @@ class MANGOS_DLL_SPEC SqlStmtParameters
          *
          * @return uint32
          */
-        uint32 boundParams() const { return m_params.size(); }
+        uint32 boundParams() const { return (uint32)m_params.size(); }
 
         /**
          * @brief add parameter

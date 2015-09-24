@@ -419,20 +419,18 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         class MANGOS_DLL_SPEC UpdateHelper
         {
             public:
-                explicit UpdateHelper(WorldObject* obj) : m_obj(obj) {}
+                explicit UpdateHelper() { }
                 ~UpdateHelper() { }
 
-                void Update(uint32 time_diff)
+                void Update(WorldObject *obj, uint32 time_diff)
                 {
-                    m_obj->Update(m_obj->m_updateTracker.timeElapsed(), time_diff);
-                    m_obj->m_updateTracker.Reset();
+                    obj->Update(obj->m_updateTracker.timeElapsed(), time_diff);
+                    obj->m_updateTracker.Reset();
                 }
 
             private:
                 UpdateHelper(const UpdateHelper&);
                 UpdateHelper& operator=(const UpdateHelper&);
-
-                WorldObject* const m_obj;
         };
 
         virtual ~WorldObject() {}

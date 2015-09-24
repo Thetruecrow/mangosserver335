@@ -45,6 +45,9 @@ ConfVersion=2014030801
 #		 So formula to find out how many connections will be established: X = ¹_connections + 1
 #		 Default: 1 connection for SELECT statements
 #
+#    ThreadPoolCount
+#        Settings for how many threads are used to update the server(1 = single threaded)
+#
 #    MaxPingTime
 #        Settings for maximum database-ping interval (minutes between pings)
 #
@@ -68,6 +71,7 @@ CharacterDatabaseInfo = "127.0.0.1;3306;mangos;mangos;characters"
 LoginDatabaseConnections = 1
 WorldDatabaseConnections = 1
 CharacterDatabaseConnections = 1
+ThreadPoolCount = 1
 MaxPingTime = 30
 WorldServerPort = 8085
 BindIP = "0.0.0.0"

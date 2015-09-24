@@ -27,6 +27,7 @@
 #include "CellImpl.h"
 #include "Corpse.h"
 #include "ObjectMgr.h"
+#include "ThreadPool.h"
 
 #define CLASS_LOCK MaNGOS::ClassLevelLockable<MapManager, ACE_Recursive_Thread_Mutex>
 INSTANTIATE_SINGLETON_2(MapManager, CLASS_LOCK);
@@ -35,7 +36,7 @@ INSTANTIATE_CLASS_MUTEX(MapManager, ACE_Recursive_Thread_Mutex);
 MapManager::MapManager()
     : i_gridCleanUpDelay(sWorld.getConfig(CONFIG_UINT32_INTERVAL_GRIDCLEAN))
 {
-    i_timer.SetInterval(sWorld.getConfig(CONFIG_UINT32_INTERVAL_MAPUPDATE));
+
 }
 
 MapManager::~MapManager()
@@ -49,8 +50,7 @@ MapManager::~MapManager()
     DeleteStateMachine();
 }
 
-void
-MapManager::Initialize()
+void MapManager::Initialize()
 {
     InitStateMachine();
 }
@@ -167,20 +167,32 @@ void MapManager::DeleteInstance(uint32 mapid, uint32 instanceId)
     }
 }
 
+class MapUpdateTask : public ThreadPoolTask
+{
+public:
+    MapUpdateTask(Map *map, uint32 diff) : m_map(map), m_diff(diff) {}
+    int call() { m_map->Update(m_diff); return ThreadPoolTask::call(); };
+
+private:
+    Map *m_map;
+    uint32 m_diff;
+};
+
 void MapManager::Update(uint32 diff)
 {
-    i_timer.Update(diff);
-    if (!i_timer.Passed())
-        return;
-
     for (MapMapType::iterator iter = i_maps.begin(); iter != i_maps.end(); ++iter)
-        iter->second->Update((uint32)i_timer.GetCurrent());
-
-    for (TransportSet::iterator iter = m_Transports.begin(); iter != m_Transports.end(); ++iter)
     {
-        WorldObject::UpdateHelper helper((*iter));
-        helper.Update((uint32)i_timer.GetCurrent());
+        if(sThreadPool.activated())
+            sThreadPool.schedule_task(new MapUpdateTask(iter->second, diff));
+        else iter->second->Update(diff); 
     }
+
+    if(sThreadPool.activated())
+        sThreadPool.wait();
+
+    WorldObject::UpdateHelper helper;
+    for (TransportSet::iterator iter = m_Transports.begin(); iter != m_Transports.end(); ++iter)
+        helper.Update(*iter, diff);
 
     // remove all maps which can be unloaded
     MapMapType::iterator iter = i_maps.begin();
@@ -188,24 +200,37 @@ void MapManager::Update(uint32 diff)
     {
         Map* pMap = iter->second;
         // check if map can be unloaded
-        if (pMap->CanUnload((uint32)i_timer.GetCurrent()))
+        if (pMap->CanUnload(diff))
         {
             pMap->UnloadAll(true);
             delete pMap;
 
             i_maps.erase(iter++);
-        }
-        else
-            ++iter;
+        } else ++iter;
     }
-
-    i_timer.SetCurrent(0);
 }
 
-void MapManager::RemoveAllObjectsInRemoveList()
+class MapCleanupTask : public ThreadPoolTask
+{
+public:
+    MapCleanupTask(Map *map) : m_map(map) {}
+    int call() { m_map->RemoveAllObjectsInRemoveList(); return ThreadPoolTask::call(); };
+
+private:
+    Map *m_map;
+};
+
+void MapManager::Cleanup()
 {
     for (MapMapType::iterator iter = i_maps.begin(); iter != i_maps.end(); ++iter)
-        iter->second->RemoveAllObjectsInRemoveList();
+    {
+        if(sThreadPool.activated())
+            sThreadPool.schedule_task(new MapCleanupTask(iter->second));
+        else iter->second->RemoveAllObjectsInRemoveList();
+    }
+
+    if(sThreadPool.activated())
+        sThreadPool.wait();
 }
 
 bool MapManager::ExistMapAndVMap(uint32 mapid, float x, float y)

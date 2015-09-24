@@ -57,7 +57,7 @@ void SQLStorageLoaderBase<DerivedLoader, StorageClass>::convert_str_to_str(uint3
     }
     else
     {
-        uint32 l = strlen(src) + 1;
+        uint32 l = (uint32)strlen(src) + 1;
         dst = new char[l];
         memcpy(dst, src, l);
     }

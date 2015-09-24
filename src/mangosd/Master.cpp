@@ -43,6 +43,7 @@
 #include "MaNGOSsoap.h"
 #include "MassMailMgr.h"
 #include "DBCStores.h"
+#include "ThreadPool.h"
 
 #include <ace/OS_NS_signal.h>
 #include <ace/TP_Reactor.h>
@@ -164,6 +165,32 @@ class RARunnable : public ACE_Based::Runnable
         }
 };
 
+class WDBThreadStartReq1 : public ACE_Method_Request
+{
+public:
+    WDBThreadStartReq1() { }
+    virtual int call()
+    {
+        WorldDatabase.ThreadStart();
+        CharacterDatabase.ThreadStart();
+        LoginDatabase.ThreadStart();
+        return 0;
+    }
+};
+
+class WDBThreadEndReq1 : public ACE_Method_Request
+{
+public:
+    WDBThreadEndReq1() { }
+    virtual int call()
+    {
+        WorldDatabase.ThreadEnd();
+        CharacterDatabase.ThreadEnd();
+        LoginDatabase.ThreadEnd();
+        return 0;
+    }
+};
+
 Master::Master()
 {
 }
@@ -222,6 +249,11 @@ int Master::Run()
         LoginDatabase.escape_string(builds);
         LoginDatabase.DirectPExecute("UPDATE realmlist SET realmflags = realmflags & ~(%u), population = 0, realmbuilds = '%s'  WHERE id = '%u'", REALM_FLAG_OFFLINE, builds.c_str(), realmID);
     }
+
+    ///- Start the multithreaded workload pool
+    int numThreads = sConfig.GetIntDefault("ThreadPoolCount", 1);
+    if(numThreads > 1 && sThreadPool.activate(numThreads, new WDBThreadStartReq1(), new WDBThreadEndReq1()) == -1)
+        abort();
 
     ACE_Based::Thread* cliThread = NULL;
 

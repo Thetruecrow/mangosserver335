@@ -679,7 +679,7 @@ class BattleGround
          *
          * @return uint32
          */
-        uint32 GetPlayersSize() const { return m_Players.size(); }
+        uint32 GetPlayersSize() const { return (uint32)m_Players.size(); }
 
         /**
          * @brief
@@ -703,7 +703,7 @@ class BattleGround
          *
          * @return uint32
          */
-        uint32 GetPlayerScoresSize() const { return m_PlayerScores.size(); }
+        uint32 GetPlayerScoresSize() const { return (uint32)m_PlayerScores.size(); }
 
         /**
          * @brief

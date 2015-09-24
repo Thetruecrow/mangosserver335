@@ -67,7 +67,7 @@ void AuthCrypt::DecryptRecv(uint8* data, size_t len)
     if (!_initialized)
         return;
 
-    _clientDecrypt.UpdateData(len, data);
+    _clientDecrypt.UpdateData((int)len, data);
 }
 
 void AuthCrypt::EncryptSend(uint8* data, size_t len)
@@ -75,5 +75,5 @@ void AuthCrypt::EncryptSend(uint8* data, size_t len)
     if (!_initialized)
         return;
 
-    _serverEncrypt.UpdateData(len, data);
+    _serverEncrypt.UpdateData((int)len, data);
 }

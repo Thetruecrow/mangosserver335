@@ -41,5 +41,5 @@ class ThreadPoolTask : public ACE_Method_Request
 {
 public:
     // Must call when overriding
-    virtual int call() { sThreadPool.task_finished(); delete this; return 0; }
+    virtual int call() { sThreadPool.task_finished(); return 0; }
 };

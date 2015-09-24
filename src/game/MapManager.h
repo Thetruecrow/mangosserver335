@@ -70,6 +70,7 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
 
         void Initialize(void);
         void Update(uint32);
+        void Cleanup();
 
         void SetGridCleanUpDelay(uint32 t)
         {
@@ -77,15 +78,6 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
                 i_gridCleanUpDelay = MIN_GRID_DELAY;
             else
                 i_gridCleanUpDelay = t;
-        }
-
-        void SetMapUpdateInterval(uint32 t)
-        {
-            if (t > MIN_MAP_UPDATE_DELAY)
-                t = MIN_MAP_UPDATE_DELAY;
-
-            i_timer.SetInterval(t);
-            i_timer.Reset();
         }
 
         // void LoadGrid(int mapid, int instId, float x, float y, const WorldObject* obj, bool no_unload = false);
@@ -128,8 +120,6 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
             }
             return fmod(o, 2.0f * M_PI_F);
         }
-
-        void RemoveAllObjectsInRemoveList();
 
         void LoadTransports();
 
@@ -175,7 +165,6 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
 
         uint32 i_gridCleanUpDelay;
         MapMapType i_maps;
-        IntervalTimer i_timer;
 };
 
 template<typename Do>

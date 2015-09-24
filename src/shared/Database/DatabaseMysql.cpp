@@ -344,7 +344,7 @@ bool MySqlPreparedStatement::prepare()
     }
 
     // prepare statement
-    if (mysql_stmt_prepare(m_stmt, m_szFmt.c_str(), m_szFmt.length()))
+    if (mysql_stmt_prepare(m_stmt, m_szFmt.c_str(), (unsigned long)m_szFmt.length()))
     {
         sLog.outError("SQL: mysql_stmt_prepare() failed for '%s'", m_szFmt.c_str());
         sLog.outError("SQL ERROR: %s", mysql_stmt_error(m_stmt));
@@ -438,7 +438,7 @@ void MySqlPreparedStatement::addParam(unsigned int nIndex, const SqlStmtFieldDat
     pData.is_unsigned = bUnsigned;
     pData.buffer = data.buff();
     pData.length = 0;
-    pData.buffer_length = data.type() == FIELD_STRING ? data.size() : 0;
+    pData.buffer_length = (unsigned long)(data.type() == FIELD_STRING ? data.size() : 0);
 }
 
 void MySqlPreparedStatement::RemoveBinds()

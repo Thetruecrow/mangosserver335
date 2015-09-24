@@ -176,11 +176,9 @@ void ObjectMessageDistDeliverer::Visit(CameraMapType& m)
 template<class T>
 void ObjectUpdater::Visit(GridRefManager<T> &m)
 {
+    WorldObject::UpdateHelper helper;
     for (typename GridRefManager<T>::iterator iter = m.begin(); iter != m.end(); ++iter)
-    {
-        WorldObject::UpdateHelper helper(iter->getSource());
-        helper.Update(i_timeDiff);
-    }
+        helper.Update(iter->getSource(), i_timeDiff);
 }
 
 bool CannibalizeObjectCheck::operator()(Corpse* u)

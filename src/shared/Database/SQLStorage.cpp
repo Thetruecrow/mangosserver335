@@ -43,8 +43,8 @@ void SQLStorageBase::Initialize(const char* tableName, const char* entry_field, 
     m_src_format = src_format;
     m_dst_format = dst_format;
 
-    m_srcFieldCount = strlen(m_src_format);
-    m_dstFieldCount = strlen(m_dst_format);
+    m_srcFieldCount = (uint32)strlen(m_src_format);
+    m_dstFieldCount = (uint32)strlen(m_dst_format);
 }
 
 char* SQLStorageBase::createRecord(uint32 recordId)

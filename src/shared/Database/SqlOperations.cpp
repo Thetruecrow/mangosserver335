@@ -53,7 +53,7 @@ bool SqlTransaction::Execute(SqlConnection* conn)
 
     conn->BeginTransaction();
 
-    const int nItems = m_queue.size();
+    const int nItems = (int)m_queue.size();
     for (int i = 0; i < nItems; ++i)
     {
         SqlOperation* pStmt = m_queue[i];

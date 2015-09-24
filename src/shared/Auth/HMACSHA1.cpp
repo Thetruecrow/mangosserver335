@@ -42,7 +42,7 @@ void HMACSHA1::UpdateData(const uint8* data, int length)
 
 void HMACSHA1::UpdateData(const std::string& str)
 {
-    UpdateData((uint8 const*)str.c_str(), str.length());
+    UpdateData((uint8 const*)str.c_str(), (int)str.length());
 }
 
 void HMACSHA1::Finalize()

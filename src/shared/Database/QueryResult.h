@@ -170,7 +170,7 @@ class MANGOS_DLL_SPEC QueryNamedResult
          */
         uint32 GetField_idx(const std::string& name) const
         {
-            for (size_t idx = 0; idx < mFieldNames.size(); ++idx)
+            for (uint32 idx = 0; idx < (uint32)mFieldNames.size(); ++idx)
             {
                 if (mFieldNames[idx] == name)
                     { return idx; }
