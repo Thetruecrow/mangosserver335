@@ -19,6 +19,8 @@
  * and lore are copyrighted by Blizzard Entertainment, Inc.
  */
 
+#pragma once
+
 #include "Database/Database.h"
 #include "Database/SqlOperations.h"
 

@@ -43,6 +43,8 @@
 #include "Common.h"
 #include "Auth/AuthCrypt.h"
 #include "Auth/BigNumber.h"
+#include "Database/DatabaseEnv.h"
+#include "Database/DatabaseImpl.h"
 
 class ACE_Message_Block;
 class WorldPacket;
@@ -124,6 +126,9 @@ class WorldSocket : protected WorldHandler
 
         /// Return the session key
         BigNumber& GetSessionKey() { return m_s; }
+
+        /// Handle authentication from our query callback
+        void HandleAuthCallback(SqlQueryHolder *holder);
 
     protected:
         /// things called by ACE framework.
@@ -213,9 +218,9 @@ class WorldSocket : protected WorldHandler
         size_t m_OutBufferSize;
 
         /// True if the socket is registered with the reactor for output
-        bool m_OutActive;
+        bool m_OutActive, m_Authenticated;
 
-        uint32 m_Seed;
+        uint32 m_clientSeed, m_Seed;
 
         BigNumber m_s;
 };

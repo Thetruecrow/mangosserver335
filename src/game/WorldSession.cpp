@@ -650,7 +650,7 @@ void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
         if (mask & (1 << i))
             m_accountData[i] = AccountData();
 
-    if (!result)
+    if (result == NULL)
         return;
 
     do
@@ -676,7 +676,6 @@ void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
         m_accountData[type].Data = fields[2].GetCppString();
     }
     while (result->NextRow());
-
     delete result;
 }
 
@@ -686,18 +685,14 @@ void WorldSession::SetAccountData(AccountDataType type, time_t time_, std::strin
     {
         uint32 acc = GetAccountId();
 
-        static SqlStatementID delId;
         static SqlStatementID insId;
 
-        CharacterDatabase.BeginTransaction();
+        LoginDatabase.BeginTransaction();
 
-        SqlStatement stmt = CharacterDatabase.CreateStatement(delId, "DELETE FROM account_data WHERE account=? AND type=?");
-        stmt.PExecute(acc, uint32(type));
-
-        stmt = CharacterDatabase.CreateStatement(insId, "INSERT INTO account_data VALUES (?,?,?,?)");
+        SqlStatement stmt = LoginDatabase.CreateStatement(insId, "REPLACE INTO account_data VALUES (?,?,?,?)");
         stmt.PExecute(acc, uint32(type), uint64(time_), data.c_str());
 
-        CharacterDatabase.CommitTransaction();
+        LoginDatabase.CommitTransaction();
     }
     else
     {
@@ -775,7 +770,7 @@ void WorldSession::SaveTutorialsData()
     {
         case TUTORIALDATA_CHANGED:
         {
-            SqlStatement stmt = CharacterDatabase.CreateStatement(updTutorial, "UPDATE character_tutorial SET tut0=?, tut1=?, tut2=?, tut3=?, tut4=?, tut5=?, tut6=?, tut7=? WHERE account = ?");
+            SqlStatement stmt = LoginDatabase.CreateStatement(updTutorial, "UPDATE account_tutorial SET tut0=?, tut1=?, tut2=?, tut3=?, tut4=?, tut5=?, tut6=?, tut7=? WHERE account = ?");
             for (int i = 0; i < 8; ++i)
                 stmt.addUInt32(m_Tutorials[i]);
 
@@ -786,7 +781,7 @@ void WorldSession::SaveTutorialsData()
 
         case TUTORIALDATA_NEW:
         {
-            SqlStatement stmt = CharacterDatabase.CreateStatement(insTutorial, "INSERT INTO character_tutorial (account,tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            SqlStatement stmt = LoginDatabase.CreateStatement(insTutorial, "INSERT INTO account_tutorial (account,tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             stmt.addUInt32(GetAccountId());
             for (int i = 0; i < 8; ++i)
@@ -819,30 +814,19 @@ void WorldSession::SendTransferAborted(uint32 mapid, uint8 reason, uint8 arg)
     SendPacket(&data);
 }
 
-void WorldSession::ReadAddonsInfo(WorldPacket& data)
+void WorldSession::ReadAddonsInfo(ByteBuffer addonBuff)
 {
-    if (data.rpos() + 4 > data.size())
-        return;
-    uint32 size;
-    data >> size;
-
-    if (!size)
-        return;
-
-    if (size > 0xFFFFF)
+    uint32 addonLen = addonBuff.read<uint32>();
+    if (addonLen > 0xFFFFF)
     {
-        sLog.outError("WorldSession::ReadAddonsInfo addon info too big, size %u", size);
+        sLog.outError("WorldSession::ReadAddonsInfo addon info too big, size %u", addonLen);
         return;
     }
 
-    uLongf uSize = size;
-
-    uint32 pos = data.rpos();
-
     ByteBuffer addonInfo;
-    addonInfo.resize(size);
-
-    if (uncompress(const_cast<uint8*>(addonInfo.contents()), &uSize, const_cast<uint8*>(data.contents() + pos), data.size() - pos) == Z_OK)
+    uLongf uSize = addonLen;
+    addonInfo.resize(addonLen);
+    if (uncompress(const_cast<uint8*>(addonInfo.contents()), &uSize, addonBuff.contents()+sizeof(uint32), addonBuff.size()-4) == Z_OK)
     {
         uint32 addonsCount;
         addonInfo >> addonsCount;                         // addons count
@@ -858,22 +842,13 @@ void WorldSession::ReadAddonsInfo(WorldPacket& data)
                 return;
 
             addonInfo >> addonName;
-
             addonInfo >> enabled >> crc >> unk1;
-
-            DEBUG_LOG("ADDON: Name: %s, Enabled: 0x%x, CRC: 0x%x, Unknown2: 0x%x", addonName.c_str(), enabled, crc, unk1);
-
             m_addonsList.push_back(AddonInfo(addonName, enabled, crc));
         }
 
         uint32 unk2;
         addonInfo >> unk2;
-
-        if (addonInfo.rpos() != addonInfo.size())
-            DEBUG_LOG("packet under read!");
-    }
-    else
-        sLog.outError("Addon packet uncompress error!");
+    } else sLog.outError("Addon packet uncompress error!");
 }
 
 void WorldSession::SendAddonsInfo()

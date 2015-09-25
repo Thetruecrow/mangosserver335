@@ -116,6 +116,9 @@ World::World()
 
     for (int i = 0; i < CONFIG_BOOL_VALUE_COUNT; ++i)
         m_configBoolValues[i] = false;
+
+    serverSeed[0].SetRand(16 * 8);
+    serverSeed[1].SetRand(16 * 8);
 }
 
 /// World destructor

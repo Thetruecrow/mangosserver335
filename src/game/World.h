@@ -23,14 +23,15 @@
 #ifndef __WORLD_H
 #define __WORLD_H
 
+#include <map>
+#include <set>
+#include <list>
+
 #include "Common.h"
 #include "Timer.h"
 #include "Policies/Singleton.h"
 #include "SharedDefines.h"
-
-#include <map>
-#include <set>
-#include <list>
+#include "Auth/BigNumber.h"
 
 class Object;
 class WorldPacket;
@@ -504,6 +505,8 @@ class World
 
         LocaleConstant GetDefaultDbcLocale() const { return m_defaultDbcLocale; }
 
+        uint8 *GetServerSeedByteArray(uint8 i) { return serverSeed[i].AsByteArray(16); }
+
         /// Get the path where data (dbc, maps) are stored on disk
         std::string GetDataPath() const { return m_dataPath; }
 
@@ -696,6 +699,8 @@ class World
         // used versions
         std::string m_DBVersion;
         std::string m_CreatureEventAIVersion;
+
+        BigNumber serverSeed[2];
 };
 
 extern uint32 realmID;

@@ -102,6 +102,35 @@ LOCK TABLES `account_banned` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `account_data`
+--
+
+CREATE TABLE `account_data` (
+  `account` int(11) unsigned NOT NULL DEFAULT '0',
+  `type` int(11) unsigned NOT NULL DEFAULT '0',
+  `time` bigint(11) unsigned NOT NULL DEFAULT '0',
+  `data` longblob NOT NULL,
+  PRIMARY KEY (`account`,`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Table structure for table `account_tutorial`
+--
+
+CREATE TABLE `account_tutorial` (
+  `account` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'Account Identifier',
+  `tut0` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut1` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut2` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut3` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut4` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut5` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut6` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut7` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`account`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Player System';
+
+--
 -- Table structure for table `ip_banned`
 --
 
