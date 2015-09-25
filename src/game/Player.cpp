@@ -19987,6 +19987,26 @@ void Player::SetGroup(Group* group, int8 subgroup)
     }
 }
 
+void Player::ProcessUpdateData(WorldPacket *packet, UpdateData *updateData)
+{
+    if(!updateData->HasData())
+        return;
+
+    int result = 0, count = 0;
+    while(true)
+    {
+        result = updateData->BuildPacket(packet);
+        if(result == -1)
+            break;
+
+        GetSession()->SendPacket(packet);
+        packet->clear(); // clean the string
+        if(result == 0)
+            break;
+    }
+    packet->clear(); // clean the string
+}
+
 void Player::SendInitialPacketsBeforeAddToMap()
 {
     GetSocial()->SendSocialList();
@@ -20575,7 +20595,6 @@ void Player::UpdateForQuestWorldObjects()
         return;
 
     UpdateData udata;
-    WorldPacket packet;
     for (GuidSet::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
     {
         if (itr->IsGameObject())
@@ -20604,8 +20623,9 @@ void Player::UpdateForQuestWorldObjects()
             }
         }
     }
-    udata.BuildPacket(&packet);
-    GetSession()->SendPacket(&packet);
+
+    WorldPacket packet;
+    ProcessUpdateData(&packet, &udata);
 }
 
 void Player::SummonIfPossible(bool agree)
@@ -22852,6 +22872,15 @@ void Player::SetHomebindToLocation(WorldLocation const& loc, uint32 area_id)
     // update sql homebind
     CharacterDatabase.PExecute("UPDATE character_homebind SET map = '%u', zone = '%u', position_x = '%f', position_y = '%f', position_z = '%f' WHERE guid = '%u'",
                                m_homebindMapId, m_homebindAreaId, m_homebindX, m_homebindY, m_homebindZ, GetGUIDLow());
+}
+
+void Player::RemoveVisibleObjects(const GuidSet &guids)
+{
+    for (GuidSet::const_iterator itr = guids.begin(); itr != guids.end(); ++itr)
+    {
+        m_clientGUIDs.erase(*itr);
+        DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "%s is out of range (no in active cells set) now for %s", itr->GetString().c_str(), GetGuidStr().c_str());
+    }
 }
 
 Object* Player::GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask)

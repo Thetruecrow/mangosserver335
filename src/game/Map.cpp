@@ -912,8 +912,7 @@ void Map::SendInitSelf(Player* player)
     }
 
     WorldPacket packet;
-    data.BuildPacket(&packet);
-    player->GetSession()->SendPacket(&packet);
+    player->ProcessUpdateData(&packet, &data);
 }
 
 void Map::SendInitTransports(Player* player)
@@ -939,8 +938,7 @@ void Map::SendInitTransports(Player* player)
     }
 
     WorldPacket packet;
-    transData.BuildPacket(&packet);
-    player->GetSession()->SendPacket(&packet);
+    player->ProcessUpdateData(&packet, &transData);
 }
 
 void Map::SendRemoveTransports(Player* player)
@@ -962,8 +960,7 @@ void Map::SendRemoveTransports(Player* player)
             (*i)->BuildOutOfRangeUpdateBlock(&transData);
 
     WorldPacket packet;
-    transData.BuildPacket(&packet);
-    player->GetSession()->SendPacket(&packet);
+    player->ProcessUpdateData(&packet, &transData);
 }
 
 inline void Map::setNGrid(NGridType* grid, uint32 x, uint32 y)
@@ -1822,11 +1819,7 @@ void Map::SendObjectUpdates()
 
     WorldPacket packet;                                     // here we allocate a std::vector with a size of 0x10000
     for (UpdateDataMapType::iterator iter = update_players.begin(); iter != update_players.end(); ++iter)
-    {
-        iter->second.BuildPacket(&packet);
-        iter->first->GetSession()->SendPacket(&packet);
-        packet.clear();                                     // clean the string
-    }
+        iter->first->ProcessUpdateData(&packet, &iter->second);
 }
 
 uint32 Map::GenerateLocalLowGuid(HighGuid guidhigh)

@@ -26,32 +26,135 @@
 #include "ObjectGuid.h"
 #include <zlib/zlib.h>
 
-UpdateData::UpdateData() : m_blockCount(0)
+INSTANTIATE_SINGLETON_1( UpdateDataHeapManager );
+
+UpdateDataHeapManager::UpdateDataHeapManager()
+{
+    m_allocatedHeaps.clear();
+}
+
+uint8 *UpdateDataHeapManager::GetorAllocateHeap(uint32 size)
+{
+    uint8 *buff = NULL;
+    AllocationMap::iterator itr = m_allocatedHeaps.find(GetCurrentThreadId());
+    if(itr == m_allocatedHeaps.end())
+    {   // We need to construct a new buffer and push it to our thread's pool
+        m_allocatedHeaps[GetCurrentThreadId()] = new AllocationBlock();
+        itr = m_allocatedHeaps.find(GetCurrentThreadId());
+    }
+
+    uint8 i = itr->second->bufferStateMap.size();
+    for(std::unordered_map<uint8, uint8 >::iterator iter = itr->second->bufferStateMap.begin(); iter != itr->second->bufferStateMap.end(); iter++)
+    {
+        if(iter->second == 0)
+        {
+            i = iter->first;
+            break;
+        }
+    }
+
+    bool createNew = true;
+    if(itr->second->bufferMap.find(i) != itr->second->bufferMap.end())
+    {
+        if(itr->second->bufferSizeMap.at(i) >= size)
+            createNew = false;
+        else
+            delete [] itr->second->bufferMap[i];
+    }
+
+    if(createNew)
+    {
+        itr->second->bufferSizeMap[i] = size;
+        itr->second->bufferMap[i] = new uint8[size];
+    }
+    itr->second->bufferStateMap[i] = 1;
+    buff = itr->second->bufferMap.at(i);
+    return buff;
+}
+
+void UpdateDataHeapManager::CleanHeap(void *ptr)
+{
+    bool found = false;
+    AllocationMap::iterator itr = m_allocatedHeaps.find(GetCurrentThreadId());
+    if(itr != m_allocatedHeaps.end())
+    {
+        AllocationBlock *block = m_allocatedHeaps[GetCurrentThreadId()];
+        for(std::unordered_map<uint8, uint8* >::iterator iter = block->bufferMap.begin(); iter != block->bufferMap.end(); iter++)
+        {
+            if(iter->second == ptr)
+            {
+                found = true;
+                block->bufferStateMap[iter->first] = 0;
+                break;
+            }
+        }
+    }
+    if(found == false)
+        delete [] ptr;
+}
+
+void UpdateDataHeapManager::CleanAllHeaps()
+{
+    for(AllocationMap::iterator itr1 = m_allocatedHeaps.begin(); itr1 != m_allocatedHeaps.end(); itr1++)
+    {
+        AllocationBlock *block = itr1->second;
+        block->bufferSizeMap.clear();
+        block->bufferStateMap.clear();
+        for(std::unordered_map<uint8, uint8* >::iterator blockItr = block->bufferMap.begin(); blockItr != block->bufferMap.end(); blockItr++)
+            delete [] blockItr->second;
+        block->bufferMap.clear();
+        delete block;
+    }
+    m_allocatedHeaps.clear();
+}
+
+inline void* customAllocate(void *opaque, unsigned int items, unsigned int size)
+{
+    return (void*)sUpdateDataHeapMgr.GetorAllocateHeap(items * size);
+}
+
+inline void customFree(void *opaque, void *ptr)
+{
+    sUpdateDataHeapMgr.CleanHeap(ptr);
+}
+
+UpdateData::UpdateData() : m_outofRangeCount(0)
 {
 }
 
 void UpdateData::AddOutOfRangeGUID(GuidSet& guids)
 {
-    m_outOfRangeGUIDs.insert(guids.begin(), guids.end());
+    for(GuidSet::iterator itr = guids.begin(); itr != guids.end(); itr++)
+        AddOutOfRangeGUID(*itr);
 }
 
 void UpdateData::AddOutOfRangeGUID(ObjectGuid const& guid)
 {
-    m_outOfRangeGUIDs.insert(guid);
+    m_outofRange << guid.WriteAsPacked();
+    m_outofRangeCount++;
+    if(guid.IsPlayer())
+        outofRangePlayers.insert(guid.GetCounter());
 }
 
 void UpdateData::AddUpdateBlock(const ByteBuffer& block)
 {
-    m_data.append(block);
-    ++m_blockCount;
+    if(m_bufferSet.empty()) // Push new buff to the rear
+        m_bufferSet.push_back(new BufferStacks());
+    // Acquire our buffer stack
+    BufferStacks *stack = m_bufferSet.back();
+    if(stack->buff.size() + block.size() >= 65000)
+        m_bufferSet.push_back(stack = new BufferStacks());
+    // Append block to buffer stack
+    stack->buff.append(block);
+    stack->count++;
 }
 
 void UpdateData::Compress(void* dst, uint32* dst_size, void* src, int src_size)
 {
     z_stream c_stream;
 
-    c_stream.zalloc = (alloc_func)0;
-    c_stream.zfree = (free_func)0;
+    c_stream.zalloc = (alloc_func)customAllocate;
+    c_stream.zfree = (free_func)customFree;
     c_stream.opaque = (voidpf)0;
 
     // default Z_BEST_SPEED (1)
@@ -106,48 +209,67 @@ bool UpdateData::BuildPacket(WorldPacket* packet)
 {
     MANGOS_ASSERT(packet->empty());                         // shouldn't happen
 
-    ByteBuffer buf(4 + (m_outOfRangeGUIDs.empty() ? 0 : 1 + 4 + 9 * m_outOfRangeGUIDs.size()) + m_data.wpos());
-
-    buf << (uint32)(!m_outOfRangeGUIDs.empty() ? m_blockCount + 1 : m_blockCount);
-
-    if (!m_outOfRangeGUIDs.empty())
+    BufferStacks *stack = NULL;
+    if(!m_bufferSet.empty())
     {
-        buf << (uint8) UPDATETYPE_OUT_OF_RANGE_OBJECTS;
-        buf << (uint32) m_outOfRangeGUIDs.size();
-
-        for (GuidSet::const_iterator i = m_outOfRangeGUIDs.begin(); i != m_outOfRangeGUIDs.end(); ++i)
-            buf << i->WriteAsPacked();
+        stack = m_bufferSet.front();
+        m_bufferSet.pop_front();
     }
 
-    buf.append(m_data);
-
-    size_t pSize = buf.wpos();                              // use real used data size
-
-    if (pSize > 100)                                        // compress large packets
+    if(uint32 count = (stack ? stack->count : 0) + (m_outofRangeCount ? 1 : 0))
     {
-        uint32 destsize = compressBound(pSize);
-        packet->resize(destsize + sizeof(uint32));
+        ByteBuffer buf(4 + 1 + (m_outofRangeCount ? 1 + 4 + m_outofRange.size() : 0) + (stack ? stack->buff.size() : 0));
+        buf << uint32(count);
 
-        packet->put<uint32>(0, pSize);
-        Compress(const_cast<uint8*>(packet->contents()) + sizeof(uint32), &destsize, (void*)buf.contents(), pSize);
-        if (destsize == 0)
-            return false;
+        if(m_outofRangeCount)
+        {
+            buf << uint8(UPDATETYPE_OUT_OF_RANGE_OBJECTS);
+            buf << uint32(m_outofRangeCount);
+            buf.append(m_outofRange);
+            m_outofRangeCount = 0;
+            m_outofRange.clear();
+        }
 
-        packet->resize(destsize + sizeof(uint32));
-        packet->SetOpcode(SMSG_COMPRESSED_UPDATE_OBJECT);
+        if(stack)
+        {
+            buf.append(stack->buff);
+            delete stack;
+        }
+
+        size_t pSize = buf.wpos();                              // use real used data size
+        if (pSize > 100 )                                       // compress large packets
+        {
+            uint32 destsize = compressBound(pSize);
+            packet->resize( destsize + sizeof(uint32) );
+
+            packet->put<uint32>(0, pSize);
+            Compress(const_cast<uint8*>(packet->contents()) + sizeof(uint32), &destsize, (void*)buf.contents(), pSize);
+            if (destsize == 0)
+                return -1;
+
+            packet->resize( destsize + sizeof(uint32) );
+            packet->SetOpcode( SMSG_COMPRESSED_UPDATE_OBJECT );
+        }
+        else                                                    // send small packets without compression
+        {
+            packet->append( buf );
+            packet->SetOpcode( SMSG_UPDATE_OBJECT );
+        }
     }
-    else                                                    // send small packets without compression
-    {
-        packet->append(buf);
-        packet->SetOpcode(SMSG_UPDATE_OBJECT);
-    }
 
-    return true;
+    return m_bufferSet.size();
 }
 
 void UpdateData::Clear()
 {
-    m_data.clear();
-    m_outOfRangeGUIDs.clear();
-    m_blockCount = 0;
+    while(!m_bufferSet.empty())
+    {
+        BufferStacks *stack = m_bufferSet.front();
+        m_bufferSet.pop_front();
+        delete stack;
+    }
+
+    m_outofRangeCount = 0;
+    m_outofRange.clear();
+    outofRangePlayers.clear();
 }

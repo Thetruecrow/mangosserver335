@@ -49,25 +49,59 @@ enum ObjectUpdateFlags
     UPDATEFLAG_ROTATION             = 0x0200
 };
 
+struct AllocationBlock
+{
+    std::unordered_map<uint8, uint8 > bufferStateMap;
+    std::unordered_map<uint8, uint32 > bufferSizeMap;
+    std::unordered_map<uint8, uint8* > bufferMap;
+};
+
+typedef std::unordered_map<DWORD, AllocationBlock* > AllocationMap;
+
+class UpdateDataHeapManager
+{
+    AllocationMap m_allocatedHeaps;
+public:
+    UpdateDataHeapManager();
+
+    uint8 *GetorAllocateHeap(uint32 size);
+    void CleanHeap(void *ptr);
+    void CleanAllHeaps();
+};
+
+#define sUpdateDataHeapMgr MaNGOS::Singleton<UpdateDataHeapManager>::Instance()
+
+class BufferStacks
+{
+public:
+    BufferStacks() : count(0), buff() { };
+
+    uint32 count;
+    ByteBuffer buff;
+};
+
 class UpdateData
 {
-    public:
-        UpdateData();
+public:
+    UpdateData();
 
-        void AddOutOfRangeGUID(GuidSet& guids);
-        void AddOutOfRangeGUID(ObjectGuid const& guid);
-        void AddUpdateBlock(const ByteBuffer& block);
-        bool BuildPacket(WorldPacket* packet);
-        bool HasData() { return m_blockCount > 0 || !m_outOfRangeGUIDs.empty(); }
-        void Clear();
+    void AddOutOfRangeGUID(GuidSet& guids);
+    void AddOutOfRangeGUID(ObjectGuid const& guid);
+    void AddUpdateBlock(const ByteBuffer& block);
+    bool BuildPacket(WorldPacket* packet);
+    bool HasData() { return (m_bufferSet.size() > 0 || m_outofRangeCount > 0); }
+    void Clear();
 
-        GuidSet const& GetOutOfRangeGUIDs() const { return m_outOfRangeGUIDs; }
+    std::set<uint32> getOutofRangePlayers() { return outofRangePlayers; }
 
-    protected:
-        uint32 m_blockCount;
-        GuidSet m_outOfRangeGUIDs;
-        ByteBuffer m_data;
+protected:
+    uint32 m_outofRangeCount;
+    ByteBuffer m_outofRange;
+    std::deque<BufferStacks*> m_bufferSet;
 
-        void Compress(void* dst, uint32* dst_size, void* src, int src_size);
+    std::set<uint32> outofRangePlayers;
+
+    void Compress(void* dst, uint32* dst_size, void* src, int src_size);
 };
+
 #endif

@@ -58,29 +58,19 @@ void VisibleNotifier::Notify()
 
     // generate outOfRange for not iterate objects
     i_data.AddOutOfRangeGUID(i_clientGUIDs);
-    for (GuidSet::iterator itr = i_clientGUIDs.begin(); itr != i_clientGUIDs.end(); ++itr)
-    {
-        player.m_clientGUIDs.erase(*itr);
-
-        DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "%s is out of range (no in active cells set) now for %s",
-                         itr->GetString().c_str(), player.GetGuidStr().c_str());
-    }
+    player.RemoveVisibleObjects(i_clientGUIDs);
 
     if (i_data.HasData())
     {
         // send create/outofrange packet to player (except player create updates that already sent using SendUpdateToPlayer)
         WorldPacket packet;
-        i_data.BuildPacket(&packet);
-        player.GetSession()->SendPacket(&packet);
+        player.ProcessUpdateData(&packet, &i_data);
 
         // send out of range to other players if need
-        GuidSet const& oor = i_data.GetOutOfRangeGUIDs();
-        for (GuidSet::const_iterator iter = oor.begin(); iter != oor.end(); ++iter)
+        std::set<uint32> oor = i_data.getOutofRangePlayers();
+        for (std::set<uint32>::const_iterator iter = oor.begin(); iter != oor.end(); ++iter)
         {
-            if (!iter->IsPlayer())
-                continue;
-
-            if (Player* plr = ObjectAccessor::FindPlayer(*iter))
+            if (Player* plr = ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, *iter)))
                 plr->UpdateVisibilityOf(plr->GetCamera().GetBody(), &player);
         }
     }

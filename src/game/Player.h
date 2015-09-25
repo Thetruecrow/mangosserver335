@@ -1036,6 +1036,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         bool IsInWater() const override { return m_isInWater; }
         bool IsUnderWater() const override;
 
+        void ProcessUpdateData(WorldPacket *packet, UpdateData *updateData);
         void SendInitialPacketsBeforeAddToMap();
         void SendInitialPacketsAfterAddToMap();
         void SendInstanceResetWarning(uint32 mapid, Difficulty difficulty, uint32 time);
@@ -2200,6 +2201,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         // currently visible objects at player client
         GuidSet m_clientGUIDs;
 
+        inline void RemoveVisibleObjects(const GuidSet &);
         bool HaveAtClient(WorldObject const* u) { return u == this || m_clientGUIDs.find(u->GetObjectGuid()) != m_clientGUIDs.end(); }
 
         bool IsVisibleInGridForPlayer(Player* pl) const override;

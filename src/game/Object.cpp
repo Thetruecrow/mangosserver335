@@ -113,11 +113,7 @@ void Object::SendForcedObjectUpdate()
 
     WorldPacket packet;                                     // here we allocate a std::vector with a size of 0x10000
     for (UpdateDataMapType::iterator iter = update_players.begin(); iter != update_players.end(); ++iter)
-    {
-        iter->second.BuildPacket(&packet);
-        iter->first->GetSession()->SendPacket(&packet);
-        packet.clear();                                     // clean the string
-    }
+        iter->first->ProcessUpdateData(&packet, &iter->second);
 }
 
 void Object::BuildMovementUpdateBlock(UpdateData* data, uint16 flags) const
@@ -203,8 +199,7 @@ void Object::SendCreateUpdateToPlayer(Player* player)
     WorldPacket packet;
 
     BuildCreateUpdateBlockForPlayer(&upd, player);
-    upd.BuildPacket(&packet);
-    player->GetSession()->SendPacket(&packet);
+    player->ProcessUpdateData(&packet, &upd);
 }
 
 void Object::BuildValuesUpdateBlockForPlayer(UpdateData* data, Player* target) const
