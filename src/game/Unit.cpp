@@ -62,9 +62,9 @@ float baseMoveSpeed[MAX_MOVE_TYPE] =
     4.5f,                                                   // MOVE_RUN_BACK
     4.722222f,                                              // MOVE_SWIM
     2.5f,                                                   // MOVE_SWIM_BACK
-    3.141594f,                                              // MOVE_TURN_RATE
     7.0f,                                                   // MOVE_FLIGHT
     4.5f,                                                   // MOVE_FLIGHT_BACK
+    3.141594f,                                              // MOVE_TURN_RATE
     3.14f                                                   // MOVE_PITCH_RATE
 };
 
@@ -8641,9 +8641,9 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
             {MSG_MOVE_SET_RUN_BACK_SPEED,   SMSG_FORCE_RUN_BACK_SPEED_CHANGE},
             {MSG_MOVE_SET_SWIM_SPEED,       SMSG_FORCE_SWIM_SPEED_CHANGE},
             {MSG_MOVE_SET_SWIM_BACK_SPEED,  SMSG_FORCE_SWIM_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_TURN_RATE,        SMSG_FORCE_TURN_RATE_CHANGE},
             {MSG_MOVE_SET_FLIGHT_SPEED,     SMSG_FORCE_FLIGHT_SPEED_CHANGE},
             {MSG_MOVE_SET_FLIGHT_BACK_SPEED, SMSG_FORCE_FLIGHT_BACK_SPEED_CHANGE},
+            {MSG_MOVE_SET_TURN_RATE,        SMSG_FORCE_TURN_RATE_CHANGE},
             {MSG_MOVE_SET_PITCH_RATE,       SMSG_FORCE_PITCH_RATE_CHANGE},
         };
 

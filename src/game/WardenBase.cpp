@@ -119,7 +119,7 @@ void WardenBase::Update(uint32 diff)
             {
                 if(initialized)
                     RequestWardenChecks();
-                else if(m_currentState == PlayerLocate)
+                else if(m_currentState == PlayerLocateBase || m_currentState == PlayerLocateOffset || m_currentState == PlayerLocatePtr)
                     FinishEnteringWorld();
                 else kick = true;
             }

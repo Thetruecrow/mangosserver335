@@ -94,7 +94,9 @@ enum WardenState
     Uninitialized,
     WaitingForCinematicComplete,
     WaitingForPlayerLocate,
-    PlayerLocate,
+    PlayerLocateBase,
+    PlayerLocateOffset,
+    PlayerLocatePtr,
     Initialized,
 };
 

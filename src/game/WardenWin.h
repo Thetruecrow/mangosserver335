@@ -82,23 +82,14 @@ struct WardenInitModuleRequest
 
 struct PlayerMovementData
 {
-    uint32 curMapId; // Current map id
-    float posX, posY, posZ, posO; // Player position at time of mem read
-    float vertO; // Vertical orientation
-    uint32 padding_0[7]; // Filler
     uint32 movementFlags, movementFlags2; // Movement flags(two bytes since can't do single uint8 store in memory)
-    float startX, startY, zWaterOffset, startO, startvertO; // Starting position on map(x, y) | Offset from water top | start orientation, cos orientation angle start
-    uint32 padding_1; // Filler
-    float forwardAngle[2], turningAngle[3], turnCounter; // Cos and Sin
-    uint32 padding_2; // Filler
-    uint32 fallTime; // Fall tiem, default 824
-    float startZ; // Starting position on map(z)
-    uint32 padding_3; // Filler
+    float posX, posY, posZ, posO;
+    float padding_0[9];
+    uint32 falltime;
+    uint32 padding_1[2];
     float currentSpeed; // Current speed(from below)
     float moveSpeed[MAX_MOVE_TYPE]; // Assigned speeds
     float gravity; // Gravity affecting jump arc
-    uint32 padding_4[8];
-    float walkStatus; // Default 1
 };
 
 #if defined(__GNUC__)
@@ -149,7 +140,9 @@ private:
     void HandleData(ByteBuffer &buff);
 
     void SendWardenLocate();
-    void SendPlayerLocate();
+    void SendPlayerBaseLocate();
+    void SendPlayerOffsetLocate();
+    void SendPlayerAddressLocate();
 
     bool m_wardenConfirmed;
     bool m_playerWasDead;
@@ -169,13 +162,17 @@ private:
 
     uint32 m_serverTicks;           // server ticks at last TIMING_CHECK reply
     uint32 m_clientTicks;           // client ticks at last TIMING_CHECK reply
+    uint32 m_playerBase;
+    uint32 m_playerOffset;
     uint32 m_playerAddress;
     uint32 m_wardenAddress;
 
     std::queue<ScanId> m_pendingScanIds;
 
     static const uint32 WardenLocateAddress = 0xD31A4C;     // from Handler_SMSG_WARDEN_DATA
-    static const uint32 PlayerLocateddress  = 0xCD87A8;
+    static const uint32 PlayerBaseAddress   = 0xCD87A8;
+    static const uint32 PlayerOffsetAddress = 0x34;
+    static const uint32 PlayerAddressOffset = 0x24;
 
     static const uint32 SFileOpenFileOffset         = 0x00024F80;     // 0x00400000 + 0x00024F80 SFileOpenFile
     static const uint32 SFileGetFileSizeOffset      = 0x000218C0;     // 0x00400000 + 0x000218C0 SFileGetFileSize

@@ -45,9 +45,8 @@
 
 WardenWin::WardenWin() : WardenBase(), m_wardenConfirmed(false), m_playerWasDead(false), m_playerWasUsingTaxi(false),
 m_playerWasRooted(false), m_playerWasSlowFalling(false), m_playerWasWaterWalking(false),
-m_playerWasLevitating(false), m_playerWasFlying(false),
-m_playerTrackingAuras(0), m_playerResourceAuras(0),
-m_serverTicks(0), m_clientTicks(0), m_playerAddress(0)
+m_playerWasLevitating(false), m_playerWasFlying(false), m_playerTrackingAuras(0), m_playerResourceAuras(0),
+m_serverTicks(0), m_clientTicks(0), m_playerBase(0), m_playerOffset(0), m_playerAddress(0)
 {
 
 }
@@ -199,7 +198,7 @@ void WardenWin::SendWardenLocate()
     ResetKickTimer(true);
 }
 
-void WardenWin::SendPlayerLocate()
+void WardenWin::SendPlayerBaseLocate()
 {
     ByteBuffer buff;
     const uint8 xorByte = m_inputKey[0];
@@ -208,7 +207,7 @@ void WardenWin::SendPlayerLocate()
     buff << uint8(0x00);
     buff << uint8(MEM_CHECK ^ xorByte);
     buff << uint8(0x00);
-    buff << uint32(PlayerLocateddress);
+    buff << uint32(PlayerBaseAddress);
     buff << uint8(4);
     buff << uint8(xorByte);
 
@@ -220,7 +219,59 @@ void WardenWin::SendPlayerLocate()
 
     m_client->SendPacket(&pkt);
 
-    m_currentState = PlayerLocate;
+    m_currentState = PlayerLocateBase;
+
+    ResetKickTimer(true);
+}
+
+void WardenWin::SendPlayerOffsetLocate()
+{
+    ByteBuffer buff;
+    const uint8 xorByte = m_inputKey[0];
+
+    buff << uint8(WARDEN_SMSG_CHEAT_CHECKS_REQUEST);
+    buff << uint8(0x00);
+    buff << uint8(MEM_CHECK ^ xorByte);
+    buff << uint8(0x00);
+    buff << uint32(m_playerBase+PlayerOffsetAddress);
+    buff << uint8(4);
+    buff << uint8(xorByte);
+
+    // Encrypt with warden RC4 key.
+    EncryptData(const_cast<uint8*>(buff.contents()), buff.size());
+
+    WorldPacket pkt(SMSG_WARDEN_DATA, buff.size());
+    pkt.append(buff);
+
+    m_client->SendPacket(&pkt);
+
+    m_currentState = PlayerLocateOffset;
+
+    ResetKickTimer(true);
+}
+
+void WardenWin::SendPlayerAddressLocate()
+{
+    ByteBuffer buff;
+    const uint8 xorByte = m_inputKey[0];
+
+    buff << uint8(WARDEN_SMSG_CHEAT_CHECKS_REQUEST);
+    buff << uint8(0x00);
+    buff << uint8(MEM_CHECK ^ xorByte);
+    buff << uint8(0x00);
+    buff << uint32(m_playerOffset+PlayerAddressOffset);
+    buff << uint8(4);
+    buff << uint8(xorByte);
+
+    // Encrypt with warden RC4 key.
+    EncryptData(const_cast<uint8*>(buff.contents()), buff.size());
+
+    WorldPacket pkt(SMSG_WARDEN_DATA, buff.size());
+    pkt.append(buff);
+
+    m_client->SendPacket(&pkt);
+
+    m_currentState = PlayerLocatePtr;
 
     ResetKickTimer(true);
 }
@@ -240,12 +291,15 @@ void WardenWin::FillRequests(std::vector<ScanId> &results)
 
 bool MovementHackCheck(ByteBuffer &buff, WorldSession *client, std::stringstream &output)
 {
-    PlayerMovementData &moveData = ((WardenWin*)client->GetWarden())->GetMoveData();
-    buff.read((uint8*)&moveData, sizeof(PlayerMovementData));
-
     // this shouldn't happen, but if it does, kick the client
     if (!client || !client->GetPlayer())
+    {
+        buff.read_skip(sizeof(PlayerMovementData));
         return true;
+    }
+
+    PlayerMovementData &moveData = ((WardenWin*)client->GetWarden())->GetMoveData();
+    buff.read((uint8*)&moveData, sizeof(PlayerMovementData));
 
     const WardenWin *warden = (const WardenWin *)client->GetWarden();
     Player *player = client->GetPlayer();
@@ -255,21 +309,21 @@ bool MovementHackCheck(ByteBuffer &buff, WorldSession *client, std::stringstream
     // Unroot is a bit different, we only check to make sure we have the flag if the status is still in effect or was in effect, never if only one of the two
     if (sWorld.getConfig(CONFIG_BOOL_WARDEN_ROOT_HACK) && warden->PlayerWasRooted() && player->HasAuraType(SPELL_AURA_MOD_ROOT)  && !(moveData.movementFlags & (MOVEFLAG_ROOT|MOVEFLAG_FALLING|MOVEFLAG_FALLINGFAR)))
     {
-        output << "Unroot hack.  Movement flags: 0x" << std::hex << moveData.movementFlags << std::dec << " Was rooted: true ";
+        output << "Unroot hack. Movement flags: 0x" << std::hex << moveData.movementFlags << std::dec << " Was rooted: true ";
         return true;
     }
 
     // slow fall
     if (sWorld.getConfig(CONFIG_BOOL_WARDEN_SLOWFALL_HACK) && ((moveData.movementFlags & MOVEFLAG_SAFE_FALL) && !warden->PlayerWasSlowFalling() && !player->HasAuraType(SPELL_AURA_FEATHER_FALL)))
     {
-        output << "Slow fall hack.  Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
+        output << "Slow fall hack. Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
         return true;
     }
 
     // water walk
     if (sWorld.getConfig(CONFIG_BOOL_WARDEN_WATERWALK_HACK) && ((moveData.movementFlags & MOVEFLAG_WATERWALKING) && !warden->PlayerWasDead() && !player->isDead() && !warden->PlayerWasWaterWalking() && !player->HasAuraType(SPELL_AURA_WATER_WALK)))
     {
-        output << "Water walk hack.  Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
+        output << "Water walk hack. Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
         return true;
     }
 
@@ -278,13 +332,13 @@ bool MovementHackCheck(ByteBuffer &buff, WorldSession *client, std::stringstream
     {
         if(sWorld.getConfig(CONFIG_BOOL_WARDEN_FLY_HACK) && !warden->PlayerWasFlying() && !player->CanHaveFlyingMovement())
         {
-            output << "Fly hack.  Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
+            output << "Fly hack. Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
             return true;
         }
     } // levitate. If the player has the levitate flag, but did not have a levitate aura when the scan was requested
     else if (sWorld.getConfig(CONFIG_BOOL_WARDEN_LEVITATE_HACK) && ((moveData.movementFlags & MOVEFLAG_LEVITATING) && !warden->PlayerWasLevitating() && !player->HasAuraType(SPELL_AURA_HOVER)))
     {
-        output << "Levitate hack.  Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
+        output << "Levitate hack. Movement flags: 0x" << std::hex << moveData.movementFlags << " " << std::dec;
         return true;
     }
 
@@ -296,9 +350,9 @@ bool MovementHackCheck(ByteBuffer &buff, WorldSession *client, std::stringstream
         currMaxSpeed = std::max(currMaxSpeed, warden->GetHighestSpeed());
 
         // if they have a value higher than the highest one we have seen yet, they are a hacker
-        if (moveData.currentSpeed > currMaxSpeed)
+        if (floor(moveData.currentSpeed) > currMaxSpeed)
         {
-            output << "Speed hack(1).  Movement speed: " << moveData.currentSpeed << "  Maximum speed: " << currMaxSpeed;
+            output << "Speed hack. Movement speed: " << moveData.currentSpeed << "  Maximum speed: " << currMaxSpeed;
             return true;
         }
     }
@@ -306,7 +360,7 @@ bool MovementHackCheck(ByteBuffer &buff, WorldSession *client, std::stringstream
     // Air swim hack
     if(sWorld.getConfig(CONFIG_BOOL_WARDEN_AIRSWIM_HACK) && ((moveData.movementFlags & MOVEFLAG_SWIMMING) && !player->GetTerrain()->IsInWater(moveData.posX, moveData.posY, moveData.posZ)))
     {
-        output << "Swim hack.  Movement flags: " << moveData.movementFlags << "  Position: " << moveData.posX << " " << moveData.posY << " " << moveData.posZ;
+        output << "Swim hack. Movement flags: " << moveData.movementFlags << "  Position: " << moveData.posX << " " << moveData.posY << " " << moveData.posZ;
         return true;
     }
 
@@ -723,7 +777,41 @@ void WardenWin::HandleData(ByteBuffer &buff)
                 m_client->HandleCharEnumOpcode(WorldPacket());
             return;
         }
-        else if (m_currentState == PlayerLocate)
+        else if (m_currentState == PlayerLocateBase)
+        {
+            if (uint8 memResult = warden_packet.read<uint8>())
+            {
+                m_client->KickPlayer();
+                return;
+            }
+
+            if ((m_playerBase = warden_packet.read<uint32>()) == 0)
+            {
+                m_client->KickPlayer();
+                return;
+            }
+
+            SendPlayerOffsetLocate();
+            return;
+        }
+        else if (m_currentState == PlayerLocateOffset)
+        {
+            if (uint8 memResult = warden_packet.read<uint8>())
+            {
+                m_client->KickPlayer();
+                return;
+            }
+
+            if ((m_playerOffset = warden_packet.read<uint32>()) == 0)
+            {
+                m_client->KickPlayer();
+                return;
+            }
+
+            SendPlayerAddressLocate();
+            return;
+        }
+        else if (m_currentState == PlayerLocatePtr)
         {
             if (uint8 memResult = warden_packet.read<uint8>())
             {
@@ -907,5 +995,9 @@ void WardenWin::HandleData(ByteBuffer &buff)
 
 void WardenWin::FinishEnteringWorld()
 {
-    SendPlayerLocate();
+    if(m_currentState == PlayerLocatePtr)
+        SendPlayerAddressLocate();
+    else if(m_currentState == PlayerLocateOffset)
+        SendPlayerOffsetLocate();
+    else SendPlayerBaseLocate();
 }
