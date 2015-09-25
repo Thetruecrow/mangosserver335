@@ -742,11 +742,11 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 {
     // NOTE: ATM the socket is singlethread, have this in mind ...
     uint8 digest[20];
-    uint32 clientSeed, id, security;
+    uint32 clientSeed, id, security = 0;
     uint32 ClientBuild;
     uint8 expansion = 0;
     LocaleConstant locale;
-    std::string account;
+    std::string account, client;
     Sha1Hash sha1;
     BigNumber v, s, g, N, K;
     WorldPacket packet;
@@ -788,15 +788,19 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     QueryResult* result =
         LoginDatabase.PQuery("SELECT "
                              "id, "                      //0
-                             "gmlevel, "                 //1
-                             "sessionkey, "              //2
-                             "last_ip, "                 //3
+                             "sessionkey, "              //1
+                             "last_ip, "                 //2
+                             "local_ip, "                //3
                              "locked, "                  //4
                              "v, "                       //5
                              "s, "                       //6
                              "expansion, "               //7
                              "mutetime, "                //8
-                             "locale "                   //9
+                             "locale, "                   //9
+                             "os, "                      //10
+                             "client_version, "          //11
+                             "language, "                //12
+                             "skipqueue "                //13
                              "FROM account "
                              "WHERE username = '%s'",
                              safe_account.c_str());
@@ -814,6 +818,11 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     }
 
     Field* fields = result->Fetch();
+
+    const std::string clientPlatform = fields[10].GetCppString();
+    const std::string clientVersion = fields[11].GetCppString();
+    const std::string clientLanguage = fields[12].GetCppString();
+    const std::string localIp = fields[3].GetCppString();
 
     expansion = ((sWorld.getConfig(CONFIG_UINT32_EXPANSION) > fields[7].GetUInt8()) ? fields[7].GetUInt8() : sWorld.getConfig(CONFIG_UINT32_EXPANSION));
 
@@ -837,7 +846,7 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     ///- Re-check ip locking (same check as in realmd).
     if (fields[4].GetUInt8() == 1)  // if ip is locked
     {
-        if (strcmp(fields[3].GetString(), GetRemoteAddress().c_str()))
+        if (strcmp(fields[2].GetString(), GetRemoteAddress().c_str()))
         {
             packet.Initialize(SMSG_AUTH_RESPONSE, 1);
             packet << uint8(AUTH_FAILED);
@@ -850,11 +859,7 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     }
 
     id = fields[0].GetUInt32();
-    security = fields[1].GetUInt16();
-    if (security > SEC_ADMINISTRATOR)                       // prevent invalid security settings in DB
-        security = SEC_ADMINISTRATOR;
-
-    K.SetHexStr(fields[2].GetString());
+    K.SetHexStr(fields[1].GetString());
 
     time_t mutetime = time_t (fields[8].GetUInt64());
 
@@ -883,9 +888,17 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
         return -1;
     }
 
+    // Checks gmlevel per Realm
+    if (QueryResult* pSecurity = LoginDatabase.PQuery ( "SELECT gmlevel FROM account_access WHERE id = '%d' AND (RealmID = '%d' OR RealmID = '-1')", id, realmID))
+    {
+        security = pSecurity->Fetch()[0].GetInt32();
+        delete pSecurity;
+    }
+    if (security > SEC_ADMINISTRATOR) // prevent invalid security settings in DB
+        security = SEC_ADMINISTRATOR;
+
     // Check locked state for server
     AccountTypes allowedAccountType = sWorld.GetPlayerSecurityLimit();
-
     if (allowedAccountType > SEC_PLAYER && AccountTypes(security) < allowedAccountType)
     {
         WorldPacket Packet(SMSG_AUTH_RESPONSE, 1);
@@ -923,9 +936,7 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 
     std::string address = GetRemoteAddress();
 
-    DEBUG_LOG("WorldSocket::HandleAuthSession: Client '%s' authenticated successfully from %s.",
-              account.c_str(),
-              address.c_str());
+    DEBUG_LOG("WorldSocket::HandleAuthSession: Client '%s' authenticated successfully from %s.", account.c_str(), address.c_str());
 
     // Update the last_ip in the database
     // No SQL injection, username escaped.
@@ -935,13 +946,14 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     stmt.PExecute(address.c_str(), account.c_str());
 
     // NOTE ATM the socket is single-threaded, have this in mind ...
-    ACE_NEW_RETURN(m_Session, WorldSession(id, this, AccountTypes(security), expansion, mutetime, locale), -1);
+    ACE_NEW_RETURN(m_Session, WorldSession(id, account, this, AccountTypes(security), expansion, mutetime, locale, clientPlatform), -1);
 
     m_Crypt.Init(&K);
 
-    m_Session->LoadGlobalAccountData();
-    m_Session->LoadTutorialsData();
+    m_Session->LoadGlobalAccountData(CharacterDatabase.PQuery("SELECT type, time, data FROM account_data WHERE account='%u'", id));
+    m_Session->LoadTutorialsData(CharacterDatabase.PQuery("SELECT tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7 FROM character_tutorial WHERE account = '%u'", id));
     m_Session->ReadAddonsInfo(recvPacket);
+    m_Session->InitWarden(&K);
 
     // In case needed sometime the second arg is in microseconds 1 000 000 = 1 sec
     ACE_OS::sleep(ACE_Time_Value(0, 10000));

@@ -7996,6 +7996,19 @@ bool Unit::IsNearWaypoint(float currentPositionX, float currentPositionY, float 
 	return false;
 }
 
+bool Unit::CanHaveFlyingMovement() const
+{
+    if(HasAuraType(SPELL_AURA_FLY) || HasAuraType(SPELL_AURA_MOD_FLIGHT_SPEED_MOUNTED))
+        return true;
+    if(GetTypeId() == TYPEID_PLAYER)
+    {
+        Player *plr = (Player*)this;
+        if(plr->CanFly())
+            return true;
+    }
+    return false;
+}
+
 void Unit::SetInCombatWith(Unit* enemy)
 {
     Unit* eOwner = enemy->GetCharmerOrOwnerOrSelf();

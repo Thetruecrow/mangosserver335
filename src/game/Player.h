@@ -2315,7 +2315,12 @@ class MANGOS_DLL_SPEC Player : public Unit
         void SetTitle(CharTitlesEntry const* title, bool lost = false);
 
         bool canSeeSpellClickOn(Creature const* creature) const;
+
+        void DelayAntiCheat(uint32 delay) { m_acDisableTimer = delay; }
+        bool IsAntiCheatDisabled() { return m_acDisableTimer > 0; }
     protected:
+
+        uint32 m_acDisableTimer;
 
         uint32 m_contestedPvPTimer;
 

@@ -548,7 +548,7 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    if (isLogingOut())
+    if (isLoggingOut())
     {
         SendTradeStatus(TRADE_STATUS_YOU_LOGOUT);
         return;
@@ -592,7 +592,7 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    if (pOther->GetSession()->isLogingOut())
+    if (pOther->GetSession()->isLoggingOut())
     {
         SendTradeStatus(TRADE_STATUS_TARGET_LOGOUT);
         return;

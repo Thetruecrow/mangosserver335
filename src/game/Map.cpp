@@ -445,7 +445,7 @@ void Map::Update(const uint32& t_diff)
         if (plr && plr->IsInWorld())
         {
             WorldSession* pSession = plr->GetSession();
-            MapSessionFilter updater(pSession);
+            MapSessionFilter updater(t_diff, pSession);
 
             pSession->Update(updater);
         }

@@ -67,6 +67,7 @@
 #include "CharacterDatabaseCleaner.h"
 #include "CreatureLinkingMgr.h"
 #include "Calendar.h"
+#include "WardenDataStorage.h"
 
 INSTANTIATE_SINGLETON_1(World);
 
@@ -265,6 +266,9 @@ World::AddSession_(WorldSession* s)
     packet << uint32(0);                                    // BillingTimeRested
     packet << uint8(s->Expansion());                        // 0 - normal, 1 - TBC, 2 - WotLK. Must be set in database manually for each account.
     s->SendPacket(&packet);
+
+    if(WardenBase *warden = s->GetWarden())
+        warden->OnAuthenticatePass();
 
     s->SendAddonsInfo();
 
@@ -624,6 +628,16 @@ void World::LoadConfigSettings(bool reload)
     setConfigMinMax(CONFIG_UINT32_TRADE_SKILL_GMIGNORE_SKILL, "TradeSkill.GMIgnore.Skill", SEC_CONSOLE, SEC_PLAYER, SEC_CONSOLE);
 
     setConfigMinMax(CONFIG_UINT32_MIN_PETITION_SIGNS, "MinPetitionSigns", 9, 0, 9);
+
+    // Warden movement hacking checks
+    setConfig(CONFIG_BOOL_ENABLE_WARDEN,            "AC.Warden", true);
+    setConfig(CONFIG_BOOL_WARDEN_ROOT_HACK,         "AC.Warden.DetectRootHack", true);
+    setConfig(CONFIG_BOOL_WARDEN_SLOWFALL_HACK,     "AC.Warden.DetectSlowfallHack", true);
+    setConfig(CONFIG_BOOL_WARDEN_WATERWALK_HACK,    "AC.Warden.DetectWaterwalkHack", true);
+    setConfig(CONFIG_BOOL_WARDEN_LEVITATE_HACK,     "AC.Warden.DetectLevitateHack", true);
+    setConfig(CONFIG_BOOL_WARDEN_FLY_HACK,          "AC.Warden.DetectFlyHack", true);
+    setConfig(CONFIG_BOOL_WARDEN_SPEED_HACK,        "AC.Warden.DetectSpeedHack", true);
+    setConfig(CONFIG_BOOL_WARDEN_AIRSWIM_HACK,      "AC.Warden.DetectAirswimHack", true);
 
     setConfig(CONFIG_UINT32_GM_LOGIN_STATE,    "GM.LoginState",    2);
     setConfig(CONFIG_UINT32_GM_VISIBLE_STATE,  "GM.Visible",       2);
@@ -1440,6 +1454,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Initialize AuctionHouseBot...");
     sAuctionBot.Initialize();
 
+    sLog.outString("Loading Warden data...");
+    sWarden.Init();
+
     sLog.outString("WORLD: World initialized");
 
     uint32 uStartInterval = WorldTimer::getMSTimeDiff(uStartTime, WorldTimer::getMSTime());
@@ -1976,7 +1993,7 @@ void World::UpdateSessions(uint32 diff)
         ++next;
         ///- and remove not active sessions from the list
         WorldSession* pSession = itr->second;
-        WorldSessionFilter updater(pSession);
+        WorldSessionFilter updater(diff, pSession);
 
         if (!pSession->Update(updater))
         {

@@ -556,6 +556,7 @@ Player::Player(WorldSession* session): Unit(), m_mover(this), m_camera(this), m_
     m_summon_y = 0.0f;
     m_summon_z = 0.0f;
 
+    m_acDisableTimer = 0;
     m_contestedPvPTimer = 0;
 
     m_declinedname = NULL;
@@ -1330,6 +1331,13 @@ void Player::Update(uint32 update_diff, uint32 p_time)
             m_timeSyncTimer -= update_diff;
     }
 
+    if(m_acDisableTimer > 0)
+    {
+        if(update_diff >= m_acDisableTimer)
+            m_acDisableTimer = 0;
+        else m_acDisableTimer -= update_diff;
+    }
+
     if (isAlive())
     {
         // if no longer casting, set regen power as soon as it is up.
@@ -1953,6 +1961,12 @@ void Player::ProcessDelayedOperations()
 
 void Player::AddToWorld()
 {
+    if (WardenBase *warden = GetSession()->GetWarden())
+        if (warden->GetCurrentState() == Uninitialized)
+            warden->BeginEnteringWorld();
+
+    DelayAntiCheat(2000);
+
     ///- Do not add/remove the player from the object storage
     ///- It will crash when updating the ObjectAccessor
     ///- The player should only be added when logging in
@@ -1967,6 +1981,9 @@ void Player::AddToWorld()
 
 void Player::RemoveFromWorld()
 {
+    if (WardenBase *warden = GetSession()->GetWarden())
+        warden->Uninitialize();
+
     for (int i = PLAYER_SLOT_START; i < PLAYER_SLOT_END; ++i)
     {
         if (m_items[i])
@@ -4416,7 +4433,7 @@ void Player::BuildPlayerRepop()
     SetHealth(1);
 
     SetWaterWalk(true);
-    if (!GetSession()->isLogingOut())
+    if (!GetSession()->isLoggingOut())
         SetRoot(false);
 
     // BG - remove insignia related
@@ -10382,7 +10399,7 @@ InventoryResult Player::CanEquipItem(uint8 slot, uint16& dest, Item* pItem, bool
                 }
 
                 // prevent equip item in process logout
-                if (GetSession()->isLogingOut())
+                if (GetSession()->isLoggingOut())
                     return EQUIP_ERR_YOU_ARE_STUNNED;
 
                 if (isInCombat() && pProto->Class == ITEM_CLASS_WEAPON && m_weaponChangeTimer != 0)
@@ -10517,7 +10534,7 @@ InventoryResult Player::CanUnequipItem(uint16 pos, bool swap) const
     }
 
     // prevent unequip item in process logout
-    if (GetSession()->isLogingOut())
+    if (GetSession()->isLoggingOut())
         return EQUIP_ERR_YOU_ARE_STUNNED;
 
     if (!swap && pItem->IsBag() && !((Bag*)pItem)->IsEmpty())
@@ -17256,7 +17273,7 @@ void Player::SaveToDB()
 
     // check if stats should only be saved on logout
     // save stats can be out of transaction
-    if (m_session->isLogingOut() || !sWorld.getConfig(CONFIG_BOOL_STATS_SAVE_ONLY_ON_LOGOUT))
+    if (m_session->isLoggingOut() || !sWorld.getConfig(CONFIG_BOOL_STATS_SAVE_ONLY_ON_LOGOUT))
         _SaveStats();
 
     // save pet (hunter pet level and experience and all type pets health/mana).
@@ -18651,7 +18668,7 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc 
         return false;
 
     // not let cheating with start flight in time of logout process || if casting not finished || while in combat || if not use Spell's with EffectSendTaxi
-    if (GetSession()->isLogingOut() || isInCombat())
+    if (GetSession()->isLoggingOut() || isInCombat())
     {
         GetSession()->SendActivateTaxiReply(ERR_TAXIPLAYERBUSY);
         return false;

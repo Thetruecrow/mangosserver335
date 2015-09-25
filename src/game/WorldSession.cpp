@@ -39,6 +39,9 @@
 #include "Auth/AuthCrypt.h"
 #include "Auth/HMACSHA1.h"
 #include "zlib/zlib.h"
+#include "WardenBase.h"
+#include "WardenWin.h"
+#include "WardenMac.h"
 
 // select opcodes appropriate for processing in Map::Update context for current session state
 static bool MapSessionFilterHelper(WorldSession* session, OpcodeHandler const& opHandle)
@@ -81,9 +84,9 @@ bool WorldSessionFilter::Process(WorldPacket* packet)
 }
 
 /// WorldSession constructor
-WorldSession::WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale) :
-    m_muteTime(mute_time), _player(NULL), m_Socket(sock), _security(sec), _accountId(id), m_expansion(expansion), _logoutTime(0),
-    m_inQueue(false), m_playerLoading(false), m_playerLogout(false), m_playerRecentlyLogout(false), m_playerSave(false),
+WorldSession::WorldSession(uint32 id, std::string account, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, const std::string clientPlatform) :
+    m_muteTime(mute_time), _player(NULL), m_Socket(sock), _security(sec), _accountId(id), m_Account(account), m_expansion(expansion), m_clientPlatform(clientPlatform.c_str())
+    , m_warden(NULL), _logoutTime(0), m_inQueue(false), m_playerLoading(false), m_playerLogout(false), m_playerRecentlyLogout(false), m_playerSave(false),
     m_sessionDbcLocale(sWorld.GetAvailableDbcLocale(locale)), m_sessionDbLocaleIndex(sObjectMgr.GetIndexForLocale(locale)),
     m_latency(0), m_tutorialState(TUTORIALDATA_UNCHANGED)
 {
@@ -109,10 +112,27 @@ WorldSession::~WorldSession()
         m_Socket = NULL;
     }
 
+    if (m_warden)
+    {
+        delete m_warden;
+        m_warden = NULL;
+    }
+
     ///- empty incoming packet queue
     WorldPacket* packet = NULL;
     while (_recvQueue.next(packet))
         delete packet;
+}
+
+void WorldSession::InitWarden(BigNumber *K)
+{
+    if (!sWorld.getConfig(CONFIG_BOOL_ENABLE_WARDEN))
+        return;
+
+    if (m_clientPlatform == "Win x86")
+        m_warden = new WardenWin();   // Windows
+    else m_warden = new WardenMac();  // MacOS
+    m_warden->Init(this, K);
 }
 
 void WorldSession::SizeError(WorldPacket const& packet, uint32 size) const
@@ -309,6 +329,14 @@ bool WorldSession::Update(PacketFilter& updater)
             return false;                                   // Will remove this session from the world session map
     }
 
+    if(m_Socket && m_warden && sWorld.getConfig(CONFIG_BOOL_ENABLE_WARDEN))
+    {
+        bool fromWorld = updater.ProcessLogout();
+        if(_player && _player->IsInWorld())
+            m_warden->Update(fromWorld ? 0 : updater.GetDiff());
+        else if(fromWorld == true)
+            m_warden->Update(updater.GetDiff());
+    }
     return true;
 }
 
@@ -611,12 +639,9 @@ void WorldSession::SendAuthWaitQue(uint32 position)
     }
 }
 
-void WorldSession::LoadGlobalAccountData()
+void WorldSession::LoadGlobalAccountData(QueryResult *result)
 {
-    LoadAccountData(
-        CharacterDatabase.PQuery("SELECT type, time, data FROM account_data WHERE account='%u'", GetAccountId()),
-        GLOBAL_CACHE_MASK
-    );
+    LoadAccountData(result, GLOBAL_CACHE_MASK);
 }
 
 void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
@@ -710,14 +735,12 @@ void WorldSession::SendAccountDataTimes(uint32 mask)
     SendPacket(&data);
 }
 
-void WorldSession::LoadTutorialsData()
+void WorldSession::LoadTutorialsData(QueryResult *result)
 {
-    for (int aX = 0 ; aX < 8 ; ++aX)
+    for (uint8 aX = 0 ; aX < 8 ; ++aX)
         m_Tutorials[ aX ] = 0;
 
-    QueryResult* result = CharacterDatabase.PQuery("SELECT tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7 FROM character_tutorial WHERE account = '%u'", GetAccountId());
-
-    if (!result)
+    if (result == NULL)
     {
         m_tutorialState = TUTORIALDATA_NEW;
         return;
@@ -726,12 +749,10 @@ void WorldSession::LoadTutorialsData()
     do
     {
         Field* fields = result->Fetch();
-
         for (int iI = 0; iI < 8; ++iI)
             m_Tutorials[iI] = fields[iI].GetUInt32();
     }
     while (result->NextRow());
-
     delete result;
 
     m_tutorialState = TUTORIALDATA_UNCHANGED;

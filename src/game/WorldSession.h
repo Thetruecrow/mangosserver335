@@ -28,6 +28,7 @@
 #include "ObjectGuid.h"
 #include "AuctionHouseMgr.h"
 #include "Item.h"
+#include "WardenBase.h"
 
 struct ItemPrototype;
 struct AuctionEntry;
@@ -190,13 +191,15 @@ enum TutorialDataState
 class PacketFilter
 {
     public:
-        explicit PacketFilter(WorldSession* pSession) : m_pSession(pSession) {}
+        explicit PacketFilter(uint32 diff, WorldSession* pSession) : m_diff(diff), m_pSession(pSession) {}
         virtual ~PacketFilter() {}
 
+        uint32 const GetDiff() { return m_diff; }
         virtual bool Process(WorldPacket* /*packet*/) { return true; }
         virtual bool ProcessLogout() const { return true; }
 
     protected:
+        uint32 const m_diff;
         WorldSession* const m_pSession;
 };
 
@@ -204,7 +207,7 @@ class PacketFilter
 class MapSessionFilter : public PacketFilter
 {
     public:
-        explicit MapSessionFilter(WorldSession* pSession) : PacketFilter(pSession) {}
+        explicit MapSessionFilter(uint32 diff, WorldSession* pSession) : PacketFilter(diff, pSession) {}
         ~MapSessionFilter() {}
 
         virtual bool Process(WorldPacket* packet) override;
@@ -217,7 +220,7 @@ class MapSessionFilter : public PacketFilter
 class WorldSessionFilter : public PacketFilter
 {
     public:
-        explicit WorldSessionFilter(WorldSession* pSession) : PacketFilter(pSession) {}
+        explicit WorldSessionFilter(uint32 diff, WorldSession* pSession) : PacketFilter(diff, pSession) {}
         ~WorldSessionFilter() {}
 
         virtual bool Process(WorldPacket* packet) override;
@@ -229,8 +232,10 @@ class MANGOS_DLL_SPEC WorldSession
         friend class CharacterHandler;
 
     public:
-        WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale);
+        WorldSession(uint32 id, std::string account, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, const std::string clientPlatform);
         ~WorldSession();
+
+        void InitWarden(BigNumber *K);
 
         bool PlayerLoading() const { return m_playerLoading; }
         bool PlayerLogout() const { return m_playerLogout; }
@@ -259,7 +264,10 @@ class MANGOS_DLL_SPEC WorldSession
         AccountTypes GetSecurity() const { return _security; }
         uint32 GetAccountId() const { return _accountId; }
         Player* GetPlayer() const { return _player; }
+        WardenBase* GetWarden() const { return m_warden; }
         char const* GetPlayerName() const;
+        const std::string &GetAccountName() { return m_Account; }
+        const std::string &GetClientPlatform() { return m_clientPlatform; }
         void SetSecurity(AccountTypes security) { _security = security; }
         std::string const& GetRemoteAddress() { return m_Address; }
         void SetPlayer(Player* plr);
@@ -269,7 +277,7 @@ class MANGOS_DLL_SPEC WorldSession
         void SetInQueue(bool state) { m_inQueue = state; }
 
         /// Is the user engaged in a log out process?
-        bool isLogingOut() const { return _logoutTime || m_playerLogout; }
+        bool isLoggingOut() const { return _logoutTime || m_playerLogout; }
 
         /// Engage the logout process for the user
         void LogoutRequest(time_t requestTime)
@@ -331,9 +339,9 @@ class MANGOS_DLL_SPEC WorldSession
         AccountData* GetAccountData(AccountDataType type) { return &m_accountData[type]; }
         void SetAccountData(AccountDataType type, time_t time_, std::string data);
         void SendAccountDataTimes(uint32 mask);
-        void LoadGlobalAccountData();
+        void LoadGlobalAccountData(QueryResult *result);
         void LoadAccountData(QueryResult* result, uint32 mask);
-        void LoadTutorialsData();
+        void LoadTutorialsData(QueryResult *result);
         void SendTutorialsData();
         void SaveTutorialsData();
         uint32 GetTutorialInt(uint32 intId)
@@ -387,6 +395,8 @@ class MANGOS_DLL_SPEC WorldSession
         void BuildPartyMemberStatsChangedPacket(Player* player, WorldPacket* data);
 
         void DoLootRelease(ObjectGuid lguid);
+
+        inline bool CharEnumReceived() const { return m_charEnumReceived; }
 
         // Account mute time
         time_t m_muteTime;
@@ -530,6 +540,8 @@ class MANGOS_DLL_SPEC WorldSession
         void HandleEjectPassenger(WorldPacket& recvPacket);
 
         void HandleRequestRaidInfoOpcode(WorldPacket& recv_data);
+
+        void HandleWardenDataOpcode(WorldPacket& recv_data);
 
         void HandleGroupInviteOpcode(WorldPacket& recvPacket);
         void HandleGroupAcceptOpcode(WorldPacket& recvPacket);
@@ -779,7 +791,6 @@ class MANGOS_DLL_SPEC WorldSession
         void HandleBattlemasterJoinArena(WorldPacket& recv_data);
         void HandleReportPvPAFK(WorldPacket& recv_data);
 
-        void HandleWardenDataOpcode(WorldPacket& recv_data);
         void HandleWorldTeleportOpcode(WorldPacket& recv_data);
         void HandleMinimapPingOpcode(WorldPacket& recv_data);
         void HandleRandomRollOpcode(WorldPacket& recv_data);
@@ -890,11 +901,19 @@ class MANGOS_DLL_SPEC WorldSession
         uint32 m_GUIDLow;                                   // set logged or recently logout player (while m_playerRecentlyLogout set)
         Player* _player;
         WorldSocket* m_Socket;
+
         std::string m_Address;
+        std::string m_Account;
+        std::string m_clientPlatform;
 
         AccountTypes _security;
         uint32 _accountId;
         uint8 m_expansion;
+
+        // Warden Implementation
+        bool m_charEnumReceived;
+        WardenBase *m_warden;
+        uint32 m_anticheatTriggers;
 
         time_t _logoutTime;
         bool m_inQueue;                                     // session wait in auth.queue

@@ -40,6 +40,7 @@
 #include "Language.h"
 #include "SpellMgr.h"
 #include "Calendar.h"
+#include "WardenWin.h"
 
 // config option SkipCinematics supported values
 enum CinematicsSkipMode
@@ -168,32 +169,38 @@ void WorldSession::HandleCharEnum(QueryResult* result)
 
 void WorldSession::HandleCharEnumOpcode(WorldPacket & /*recv_data*/)
 {
-    /// get all the data necessary for loading all characters (along with their pets) on the account
-    CharacterDatabase.AsyncPQuery(&chrHandler, &CharacterHandler::HandleCharEnumCallback, GetAccountId(),
-                                  !sWorld.getConfig(CONFIG_BOOL_DECLINED_NAMES_USED) ?
-                                  //   ------- Query Without Declined Names --------
-                                  //           0               1                2                3                 4                  5                       6                        7
-                                  "SELECT characters.guid, characters.name, characters.race, characters.class, characters.gender, characters.playerBytes, characters.playerBytes2, characters.level, "
-                                  //   8                9               10                     11                     12                     13                    14
-                                  "characters.zone, characters.map, characters.position_x, characters.position_y, characters.position_z, guild_member.guildid, characters.playerFlags, "
-                                  //  15                    16                   17                     18                   19
-                                  "characters.at_login, character_pet.entry, character_pet.modelid, character_pet.level, characters.equipmentCache "
-                                  "FROM characters LEFT JOIN character_pet ON characters.guid=character_pet.owner AND character_pet.slot='%u' "
-                                  "LEFT JOIN guild_member ON characters.guid = guild_member.guid "
-                                  "WHERE characters.account = '%u' ORDER BY characters.guid"
-                                  :
-                                  //   --------- Query With Declined Names ---------
-                                  //           0               1                2                3                 4                  5                       6                        7
-                                  "SELECT characters.guid, characters.name, characters.race, characters.class, characters.gender, characters.playerBytes, characters.playerBytes2, characters.level, "
-                                  //   8                9               10                     11                     12                     13                    14
-                                  "characters.zone, characters.map, characters.position_x, characters.position_y, characters.position_z, guild_member.guildid, characters.playerFlags, "
-                                  //  15                    16                   17                     18                   19                         20
-                                  "characters.at_login, character_pet.entry, character_pet.modelid, character_pet.level, characters.equipmentCache, character_declinedname.genitive "
-                                  "FROM characters LEFT JOIN character_pet ON characters.guid = character_pet.owner AND character_pet.slot='%u' "
-                                  "LEFT JOIN character_declinedname ON characters.guid = character_declinedname.guid "
-                                  "LEFT JOIN guild_member ON characters.guid = guild_member.guid "
-                                  "WHERE characters.account = '%u' ORDER BY characters.guid",
-                                  PET_SAVE_AS_CURRENT, GetAccountId());
+    m_charEnumReceived = true;
+
+    // if the system is either not windows, Warden is disabled or Warden integrity has already been confirmed, proceed immediately
+    if (!m_warden || !m_warden->IsWindows() || ((WardenWin*)m_warden)->IsWardenConfirmed())
+    {
+        /// get all the data necessary for loading all characters (along with their pets) on the account
+        CharacterDatabase.AsyncPQuery(&chrHandler, &CharacterHandler::HandleCharEnumCallback, GetAccountId(),
+                                      !sWorld.getConfig(CONFIG_BOOL_DECLINED_NAMES_USED) ?
+                                      //   ------- Query Without Declined Names --------
+                                      //           0               1                2                3                 4                  5                       6                        7
+                                      "SELECT characters.guid, characters.name, characters.race, characters.class, characters.gender, characters.playerBytes, characters.playerBytes2, characters.level, "
+                                      //   8                9               10                     11                     12                     13                    14
+                                      "characters.zone, characters.map, characters.position_x, characters.position_y, characters.position_z, guild_member.guildid, characters.playerFlags, "
+                                      //  15                    16                   17                     18                   19
+                                      "characters.at_login, character_pet.entry, character_pet.modelid, character_pet.level, characters.equipmentCache "
+                                      "FROM characters LEFT JOIN character_pet ON characters.guid=character_pet.owner AND character_pet.slot='%u' "
+                                      "LEFT JOIN guild_member ON characters.guid = guild_member.guid "
+                                      "WHERE characters.account = '%u' ORDER BY characters.guid"
+                                      :
+                                      //   --------- Query With Declined Names ---------
+                                      //           0               1                2                3                 4                  5                       6                        7
+                                      "SELECT characters.guid, characters.name, characters.race, characters.class, characters.gender, characters.playerBytes, characters.playerBytes2, characters.level, "
+                                      //   8                9               10                     11                     12                     13                    14
+                                      "characters.zone, characters.map, characters.position_x, characters.position_y, characters.position_z, guild_member.guildid, characters.playerFlags, "
+                                      //  15                    16                   17                     18                   19                         20
+                                      "characters.at_login, character_pet.entry, character_pet.modelid, character_pet.level, characters.equipmentCache, character_declinedname.genitive "
+                                      "FROM characters LEFT JOIN character_pet ON characters.guid = character_pet.owner AND character_pet.slot='%u' "
+                                      "LEFT JOIN character_declinedname ON characters.guid = character_declinedname.guid "
+                                      "LEFT JOIN guild_member ON characters.guid = guild_member.guid "
+                                      "WHERE characters.account = '%u' ORDER BY characters.guid",
+                                      PET_SAVE_AS_CURRENT, GetAccountId());
+    }
 }
 
 void WorldSession::HandleCharCreateOpcode(WorldPacket& recv_data)
@@ -701,6 +708,9 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     // Show cinematic at the first time that player login
     if (!pCurrChar->getCinematic())
     {
+        if (m_warden && m_warden->IsWindows())
+            ((WardenWin*)m_warden)->BeginCinematic();
+
         pCurrChar->setCinematic(1);
 
         if (ChrClassesEntry const* cEntry = sChrClassesStore.LookupEntry(pCurrChar->getClass()))

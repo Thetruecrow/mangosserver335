@@ -370,7 +370,8 @@ void WorldSession::HandleForceSpeedChangeAckOpcodes(WorldPacket& recv_data)
 void WorldSession::HandleSetActiveMoverOpcode(WorldPacket& recv_data)
 {
     DEBUG_LOG("WORLD: Received opcode CMSG_SET_ACTIVE_MOVER");
-    recv_data.hexlike();
+    if (m_warden && m_warden->GetCurrentState() == WaitingForPlayerLocate)
+        m_warden->FinishEnteringWorld();
 
     ObjectGuid guid;
     recv_data >> guid;
@@ -386,7 +387,6 @@ void WorldSession::HandleSetActiveMoverOpcode(WorldPacket& recv_data)
 void WorldSession::HandleMoveNotActiveMoverOpcode(WorldPacket& recv_data)
 {
     DEBUG_LOG("WORLD: Received opcode CMSG_MOVE_NOT_ACTIVE_MOVER");
-    recv_data.hexlike();
 
     ObjectGuid old_mover_guid;
     MovementInfo mi;

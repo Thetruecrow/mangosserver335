@@ -7016,7 +7016,7 @@ bool ChatHandler::HandleSendMessageCommand(char* args)
         return false;
 
     ///- Check that he is not logging out.
-    if (rPlayer->GetSession()->isLogingOut())
+    if (rPlayer->GetSession()->isLoggingOut())
     {
         SendSysMessage(LANG_PLAYER_NOT_FOUND);
         SetSentErrorMessage(true);
