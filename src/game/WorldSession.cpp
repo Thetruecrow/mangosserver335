@@ -337,6 +337,11 @@ bool WorldSession::Update(PacketFilter& updater)
         else if(fromWorld == true)
             m_warden->Update(updater.GetDiff());
     }
+
+    if(updater.ProcessLogout())
+        return true;
+    else if(_player == NULL)
+        return false;
     return true;
 }
 

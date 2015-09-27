@@ -43,7 +43,8 @@ inline void MaNGOS::ObjectUpdater::Visit(CreatureMapType& m)
 {
     WorldObject::UpdateHelper helper;
     for (CreatureMapType::iterator iter = m.begin(); iter != m.end(); ++iter)
-        helper.Update(iter->getSource(), i_timeDiff);
+        if(iter->getSource()->GetPhaseMask() & i_phaseMask)
+            helper.Update(iter->getSource(), i_timeDiff);
 }
 
 inline void PlayerCreatureRelocationWorker(Player* pl, Creature* c)

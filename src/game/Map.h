@@ -335,7 +335,6 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
 
         typedef std::set<WorldObject*> ActiveNonPlayers;
         ActiveNonPlayers m_activeNonPlayers;
-        ActiveNonPlayers::iterator m_activeNonPlayersIter;
         MapStoredObjectTypesContainer m_objectsStore;
 
     private:

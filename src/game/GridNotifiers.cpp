@@ -168,7 +168,8 @@ void ObjectUpdater::Visit(GridRefManager<T> &m)
 {
     WorldObject::UpdateHelper helper;
     for (typename GridRefManager<T>::iterator iter = m.begin(); iter != m.end(); ++iter)
-        helper.Update(iter->getSource(), i_timeDiff);
+        if(iter->getSource()->GetPhaseMask() & i_phaseMask)
+            helper.Update(iter->getSource(), i_timeDiff);
 }
 
 bool CannibalizeObjectCheck::operator()(Corpse* u)
