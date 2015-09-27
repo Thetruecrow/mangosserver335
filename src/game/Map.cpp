@@ -450,7 +450,7 @@ void Map::Update(const uint32& t_diff)
         WorldSession* pSession = plr->GetSession();
         MapSessionFilter updater(t_diff, pSession);
 
-        if(pSession->Update(updater))
+        if(pSession && pSession->Update(updater))
             helper.Update(plr, t_diff);
 
         if(!plr->IsPositionValid())

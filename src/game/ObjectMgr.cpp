@@ -5063,10 +5063,13 @@ void ObjectMgr::ReturnOrDeleteOldMails(bool serverUp)
     QueryResult* result = CharacterDatabase.PQuery("SELECT id,messageType,sender,receiver,has_items,expire_time,cod,checked,mailTemplateId FROM mail WHERE expire_time < '" UI64FMTD "'", (uint64)basetime);
     if (!result)
     {
-        BarGoLink bar(1);
-        bar.step();
-        sLog.outString();
-        sLog.outString(">> Only expired mails (need to be return or delete) or DB table `mail` is empty.");
+        if(sLog.GetLogLevel() >= LOG_LVL_DEBUG)
+        {
+            BarGoLink bar(1);
+            bar.step();
+            sLog.outString("");
+            sLog.outString(">> Only expired mails (need to be return or delete) or DB table `mail` is empty.");
+        }
         return;                                             // any mails need to be returned or deleted
     }
 
@@ -5879,29 +5882,26 @@ void ObjectMgr::PackGroupIds()
 
 void ObjectMgr::SetHighestGuids()
 {
-    QueryResult* result = CharacterDatabase.Query("SELECT MAX(guid) FROM characters");
-    if (result)
+    QueryResult* result;
+    if (result = CharacterDatabase.Query("SELECT MAX(guid) FROM characters"))
     {
-        m_CharGuids.Set((*result)[0].GetUInt32() + 1);
+        m_CharGuids.Set(std::max<uint32>(0x00000010, (*result)[0].GetUInt32()+1));
         delete result;
-    }
+    } else m_CharGuids.Set(0x00000010);
 
-    result = WorldDatabase.Query("SELECT MAX(guid) FROM creature");
-    if (result)
+    if (result = WorldDatabase.Query("SELECT MAX(guid) FROM creature"))
     {
         m_FirstTemporaryCreatureGuid = (*result)[0].GetUInt32() + 1;
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(guid) FROM item_instance");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(guid) FROM item_instance"))
     {
         m_ItemGuids.Set((*result)[0].GetUInt32() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(id) FROM instance");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(id) FROM instance"))
     {
         m_InstanceGuids.Set((*result)[0].GetUInt32() + 1);
         delete result;
@@ -5915,57 +5915,49 @@ void ObjectMgr::SetHighestGuids()
     CharacterDatabase.PExecute("DELETE FROM guild_bank_item WHERE item_guid >= '%u'", m_ItemGuids.GetNextAfterMaxUsed());
     CharacterDatabase.CommitTransaction();
 
-    result = WorldDatabase.Query("SELECT MAX(guid) FROM gameobject");
-    if (result)
+    if (result = WorldDatabase.Query("SELECT MAX(guid) FROM gameobject"))
     {
         m_FirstTemporaryGameObjectGuid = (*result)[0].GetUInt32() + 1;
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(id) FROM auction");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(id) FROM auction"))
     {
         m_AuctionIds.Set((*result)[0].GetUInt32() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(id) FROM mail");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(id) FROM mail"))
     {
         m_MailIds.Set((*result)[0].GetUInt32() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(guid) FROM corpse");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(guid) FROM corpse"))
     {
         m_CorpseGuids.Set((*result)[0].GetUInt32() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(arenateamid) FROM arena_team");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(arenateamid) FROM arena_team"))
     {
         m_ArenaTeamIds.Set((*result)[0].GetUInt32() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(setguid) FROM character_equipmentsets");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(setguid) FROM character_equipmentsets"))
     {
         m_EquipmentSetIds.Set((*result)[0].GetUInt64() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(guildid) FROM guild");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(guildid) FROM guild"))
     {
         m_GuildIds.Set((*result)[0].GetUInt32() + 1);
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(groupId) FROM groups");
-    if (result)
+    if (result = CharacterDatabase.Query("SELECT MAX(groupId) FROM groups"))
     {
         m_GroupGuids.Set((*result)[0].GetUInt32() + 1);
         delete result;

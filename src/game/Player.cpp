@@ -3956,7 +3956,7 @@ void Player::InitVisibleBits()
     updateVisualBits.SetBit(PLAYER_GUILD_TIMESTAMP);
 
     // PLAYER_QUEST_LOG_x also visible bit on official (but only on party/raid)...
-    for (uint16 i = PLAYER_QUEST_LOG_1_1; i < PLAYER_QUEST_LOG_25_2; i += MAX_QUEST_OFFSET)
+    for (uint16 i = PLAYER_QUEST_LOG; i < PLAYER_VISIBLE_ITEM; i += MAX_QUEST_OFFSET)
         updateVisualBits.SetBit(i);
 
     // Players visible items are not inventory stuff
@@ -3965,9 +3965,9 @@ void Player::InitVisibleBits()
         uint32 offset = i * 2;
 
         // item entry
-        updateVisualBits.SetBit(PLAYER_VISIBLE_ITEM_1_ENTRYID + offset);
+        updateVisualBits.SetBit(PLAYER_VISIBLE_ITEM + offset);
         // enchant
-        updateVisualBits.SetBit(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + offset);
+        updateVisualBits.SetBit(PLAYER_VISIBLE_ITEM+1 + offset);
     }
 
     updateVisualBits.SetBit(PLAYER_CHOSEN_TITLE);
@@ -11191,14 +11191,14 @@ void Player::SetVisibleItemSlot(uint8 slot, Item* pItem)
 {
     if (pItem)
     {
-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2), pItem->GetEntry());
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (slot * 2), 0, pItem->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (slot * 2), 1, pItem->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
+        SetUInt32Value(PLAYER_VISIBLE_ITEM + (slot * 2), pItem->GetEntry());
+        SetUInt16Value(PLAYER_VISIBLE_ITEM + 1 + (slot * 2), 0, pItem->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
+        SetUInt16Value(PLAYER_VISIBLE_ITEM + 1 + (slot * 2), 1, pItem->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
     }
     else
     {
-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2), 0);
-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (slot * 2), 0);
+        SetUInt32Value(PLAYER_VISIBLE_ITEM + (slot * 2), 0);
+        SetUInt32Value(PLAYER_VISIBLE_ITEM + 1 + (slot * 2), 0);
     }
 }
 
@@ -12755,10 +12755,9 @@ void Player::ApplyEnchantment(Item* item, EnchantmentSlot slot, bool apply, bool
 
     // visualize enchantment at player and equipped items
     if (slot == PERM_ENCHANTMENT_SLOT)
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (item->GetSlot() * 2), 0, apply ? item->GetEnchantmentId(slot) : 0);
-
-    if (slot == TEMP_ENCHANTMENT_SLOT)
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (item->GetSlot() * 2), 1, apply ? item->GetEnchantmentId(slot) : 0);
+        SetUInt16Value(PLAYER_VISIBLE_ITEM + 1 + (item->GetSlot() * 2), 0, apply ? item->GetEnchantmentId(slot) : 0);
+    else if (slot == TEMP_ENCHANTMENT_SLOT)
+        SetUInt16Value(PLAYER_VISIBLE_ITEM + 1 + (item->GetSlot() * 2), 1, apply ? item->GetEnchantmentId(slot) : 0);
 
     if (apply_dur)
     {
@@ -17232,7 +17231,7 @@ void Player::SaveToDB()
 
     for (uint32 i = 0; i < EQUIPMENT_SLOT_END * 2; ++i)     // string
     {
-        ss << GetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + i) << " ";
+        ss << GetUInt32Value(PLAYER_VISIBLE_ITEM + i) << " ";
     }
     uberInsert.addString(ss);
 

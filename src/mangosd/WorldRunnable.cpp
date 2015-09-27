@@ -43,6 +43,7 @@ void WorldRunnable::run()
     WorldDatabase.ThreadStart();                            // let thread do safe mySQL requests (one connection call enough)
     sWorld.InitResultQueue();
 
+    WorldTimer::tick();
     uint32 prevSleepTime = 0;                               // used for balanced full tick time length near WORLD_SLEEP_CONST
 
     ///- While we have not World::m_stopEvent, update the world
