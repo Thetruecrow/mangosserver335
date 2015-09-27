@@ -25,6 +25,13 @@
 #include "Common.h"
 #include <ace/OS_NS_sys_time.h>
 
+#ifdef WIN32
+#include "Mmsystem.h"
+inline uint32 msTimestamp() { return timeGetTime(); }
+#else
+inline uint32 msTimestamp() { return GetTickCount(); }
+#endif
+
 /**
  * @brief
  *
@@ -91,14 +98,6 @@ class WorldTimer
          * @param
          */
         WorldTimer(const WorldTimer&);
-
-        /**
-         * @brief analogue to getMSTime() but it persists m_SystemTickTime
-         *
-         * @param savetime
-         * @return uint32
-         */
-        static uint32 getMSTime_internal(bool savetime = false);
 
         static MANGOS_DLL_SPEC uint32 m_iTime; /**< TODO */
         static MANGOS_DLL_SPEC uint32 m_iPrevTime; /**< TODO */

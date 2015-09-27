@@ -43,22 +43,20 @@ void WorldRunnable::run()
     WorldDatabase.ThreadStart();                            // let thread do safe mySQL requests (one connection call enough)
     sWorld.InitResultQueue();
 
-    uint32 realCurrTime = 0;
-    uint32 realPrevTime = WorldTimer::tick();
-
     uint32 prevSleepTime = 0;                               // used for balanced full tick time length near WORLD_SLEEP_CONST
 
     ///- While we have not World::m_stopEvent, update the world
     while (!World::IsStopped())
     {
         ++World::m_worldLoopCounter;
-        realCurrTime = WorldTimer::getMSTime();
-
         uint32 diff = WorldTimer::tick();
 
         sWorld.Update(diff);
-        realPrevTime = realCurrTime;
 
+#ifdef WIN32
+        // Begin high res media timer
+        MMRESULT result = timeBeginPeriod(10);
+#endif
         // diff (D0) include time of previous sleep (d0) + tick time (t0)
         // we want that next d1 + t1 == WORLD_SLEEP_CONST
         // we can't know next t1 and then can use (t0 + d1) == WORLD_SLEEP_CONST requirement
@@ -67,11 +65,11 @@ void WorldRunnable::run()
         {
             prevSleepTime = WORLD_SLEEP_CONST + prevSleepTime - diff;
             ACE_Based::Thread::Sleep(prevSleepTime);
-        }
-        else
-            prevSleepTime = 0;
+        } else prevSleepTime = 0;
 
 #ifdef WIN32
+        if(result == TIMERR_NOERROR)
+            timeEndPeriod(10);
         if (m_ServiceStatus == 0) World::StopNow(SHUTDOWN_EXIT_CODE);
         while (m_ServiceStatus == 2) Sleep(1000);
 #endif
